@@ -1,0 +1,123 @@
+﻿@using Newtonsoft.Json
+@model ARMS.ViewModels.SeatingStudentViewModel
+@{
+    ViewData["Title"] = "Browse";
+}
+
+<div class="page-selection">
+    <div>    
+        <img class="m-x-15" src="@Url.Content("~/assets/icon/clock.png")" alt=""/>
+        <label class="m-l-10 m-t-5" id="display-time"></label>
+    </div>    
+    <div>
+        <label></label>
+    </div>
+</div>
+
+<div class="page-breadcrumb">
+    <div class="unselected">
+        <button id="button-examination-room" type="submit">
+            <span>Examination Room</span>
+        </button>
+    </div>
+    <div>
+        <button class="active" id="button-current" type="submit">
+            <span>Room @(JsonConvert.DeserializeObject<SeatingRoom>(Model.SeatingRoom).Name)</span>
+        </button>
+    </div>
+</div>
+
+<div class="page-detail">
+    <div>
+        <label class="m-l-15">@Model.SessionText on <span>@(JsonConvert.DeserializeObject<SeatingRoom>(Model.SeatingRoom).ExaminationDateTime)</span></label>
+    </div>
+</div>
+
+<div  class="page-content-pdf">
+    <div id="page-content-pdf"></div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        
+        $.ajax({
+            type: 'GET',
+            url: `@Url.Action("CurrentDateTime", "Home")`,
+            cache: true,
+            dataType: 'json'
+        }).done(function(res) {
+            $('#display-time').text(`Updated At ${res['dateTime']}`)
+        }).fail(function(a, b, c) {
+            console.log('It is error');
+            console.log(c);
+        });
+
+        const reload = $('div[id$=main-reloading]');
+        const browsePartial = $('#browse-partial');
+        const pageContentPDF = $('#page-content-pdf');
+        const btnExaminationRoom = $('#button-examination-room');
+        const btnCurrent = $('#button-current');
+        const semesterSelected = $('select[id$=semester]').val();
+        const semesterText = $('select[id$=semester] option:selected').text();
+        const sessionText = $('select[id$=session] option:selected').text();
+        let seatingRoom = JSON.parse(@Json.Serialize(Model.SeatingRoom));
+        
+        const model = { semesterId: semesterSelected, semesterText: semesterText, sessionText: sessionText, seatingRoom: JSON.stringify(seatingRoom) }
+        $.ajax({
+            type: 'POST',
+            url: '@Url.Action("PreviewContent", "Browse")',
+            data: model,
+            cache: false
+        }).done(function(res) {
+            pageContentPDF.empty().append(res);
+            reload.hide();
+        }).fail(function(a, b, c) {
+            console.log('It is error');
+            console.log(c);
+            loadErrorPage();
+        }); 
+        
+        btnExaminationRoom.click(function() {
+            reload.show();
+            $.ajax({
+                type: 'GET',
+                url: `@Url.Action("ExaminationSeating", "Browse")`,
+                cache: true
+            }).done(function(res) {
+                browsePartial.empty().append(res);
+            }).fail(function(a, b, c) {
+                console.log('It is error');
+                console.log(c);
+            });         
+        });
+        
+        btnCurrent.click(function() {
+            reload.show();
+            const model = { semesterId: semesterSelected, semesterText: semesterText, sessionText: sessionText, seatingRoom: JSON.stringify(seatingRoom)}
+            $.ajax({
+                type: 'POST',
+                url: '@Url.Action("PreviewReport", "Browse")',
+                data: model,
+                cache: true
+            }).done(function(res) {
+                browsePartial.empty().append(res);
+                reload.hide();
+            }).fail(function(a, b, c) {
+                console.log('It is error');
+                console.log(c);
+                loadErrorPage();
+            });        
+        });
+        
+        function loadErrorPage() {
+            const url = '@Url.Action("ErrorPage", "Home")';
+            $.ajax({
+                type: 'GET',
+                url: url
+            }).done(function(res) {
+                browsePartial.empty().append(res);
+                reload.hide();
+            });
+        }
+    }); 
+</script>

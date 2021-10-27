@@ -1,0 +1,262 @@
+@{
+    ViewData["Title"] = "Browse";
+}
+
+<div class="page-content">
+    
+    <div>
+        <div class="page-selection">
+            <div>
+                <img class="m-x-15" src="@Url.Content("~/assets/icon/browse.png")" alt=""/>
+                <label class="m-l-10 m-t-5">Browse</label>
+            </div>
+            <div>
+                <label class="m-x-10">Semester</label>
+                <label for="semester"></label>
+                <select id="semester" class="main-select">
+                    <option selected="selected" disabled="disabled">Select Semester</option>
+                </select>
+                <label class="m-l-35 m-r-10">Session</label>
+                <label for="session"></label>
+                <select id="session" class="main-select">
+                    <option selected="selected" disabled="disabled">Select Session</option>
+                </select>
+                <button id="search-browse" class="main-btn main-btn-second m-l-35 m-r-15" type="submit">
+                    <img src="@Url.Content("~/assets/icon/search.png")" alt=""/>
+                    <span>Search</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="page-segment" style="display: none;">
+            <div>
+                @* <button class="button-segment active" type="submit"> *@
+                @*     <img src="@Url.Content("~/assets/icon/schedule.png")" alt=""/> *@
+                @*     <span>Student's Schedule</span> *@
+                @* </button> *@
+                <button class="button-segment" type="submit">
+                    <img src="@Url.Content("~/assets/icon/conflict.png")" alt=""/>
+                    <span>Conflict Student</span>
+                </button>
+                <button class="button-segment" type="submit">
+                    <img src="@Url.Content("~/assets/icon/printer.png")" alt=""/>
+                    <span>Examination Seating</span>
+                </button>
+                <button class="button-segment" type="submit">
+                    <img src="@Url.Content("~/assets/icon/history.png")" alt=""/>
+                    <span>System Log</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="browse-partial"></div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+           
+        let browses;
+        const reload = $('div[id$=main-reloading]');
+        const semesterSelect = $('#semester');
+        const sessionSelect = $('#session');
+        const browsePartial = $('#browse-partial');
+        const pageSegment = $('.page-segment');
+        
+        $.getJSON('@Url.Action("LoadBrowses", "Home")', function(res) {
+            browses = res;
+        });
+        
+        $('.button-segment').on('click', function() {
+            browsePartial.empty();
+            $('.button-segment').each(function(index, object) {
+                if (object.className.indexOf('active') !== -1) {
+                    object.className = object.className.replace(' active', '');
+                } 
+            });
+            $(this).addClass('active');
+            const currentIndex = $(this).index();
+            // if (currentIndex === 0 || currentIndex === 2) {
+            if (currentIndex === 1) {
+                reload.show();
+                $.ajax({
+                    type: 'GET',
+                    url: browses[currentIndex]['url'],
+                    cache: true
+                }).done(function(res) {
+                    browsePartial.empty().append(res);
+                }).fail(function(a, b, c) {
+                    console.log('It is error');
+                    console.log(c);
+                    loadErrorPage();
+                });
+            // } else if (currentIndex === 1) {
+            } else if (currentIndex === 0) {
+                loadConflictStudent();
+            } else {
+                reload.show();
+                $.ajax({
+                    type: 'POST',
+                    url: browses[currentIndex]['url'] + `?semesterId=${semesterSelect.val()}&examinationTypeId=${sessionSelect.val()}`,
+                    cache: true
+                }).done(function(res) {
+                    browsePartial.empty().append(res);
+                    reload.hide();
+                }).fail(function(a, b, c) {
+                    console.log('It is error');
+                    console.log(c);
+                    loadErrorPage();
+                });
+            } 
+            
+            
+            
+            
+            // else if (currentIndex === 2) {
+            //     reload.show();
+            //     $.ajax({
+            //         type: 'POST',
+            //         url: browses[currentIndex]['url'] + `?semesterId=${semesterSelect.val()}&examinationTypeId=${sessionSelect.val()}`,
+            //         cache: true
+            //     }).done(function(res) {
+            //         browsePartial.empty().append(res);
+            //         reload.hide();
+            //     }).fail(function(a, b, c) {
+            //         console.log('It is error');
+            //         console.log(c);
+            //         loadErrorPage();
+            //     });
+            // } else if (currentIndex === 3) {
+            //     reload.show();
+            //     $.ajax({
+            //         type: 'POST',
+            //         url: browses[currentIndex]['url'] + `?semesterId=${semesterSelect.val()}&examinationTypeId=${sessionSelect.val()}`,
+            //         cache: true
+            //     }).done(function(res) {
+            //         browsePartial.empty().append(res);
+            //         reload.hide();
+            //     }).fail(function(a, b, c) {
+            //         console.log('It is error');
+            //         console.log(c);
+            //         loadErrorPage();
+            //     });
+            // }
+        });
+        
+        function rollBackSegmentUX() {
+            $('.button-segment').each(function(index, object) {
+                if (object.className.indexOf('active') !== -1) {
+                    object.className = object.className.replace(' active', '');
+                } 
+                index === 0 ? $(this).addClass('active') : null;
+            });
+        }
+        
+        // function loadSearchStudent() {
+        //     $.ajax({
+        //         type: 'GET',
+        //         url: browses[0]['url'],
+        //         cache: true
+        //     }).done(function(res) {
+        //         browsePartial.empty().append(res);
+        //         reload.hide();
+        //     }).fail(function(a, b, c) {
+        //         console.log('It is error');
+        //         console.log(c);
+        //         loadErrorPage();
+        //     });
+        // }
+        
+        function loadConflictStudent() {
+            const sessionText = $('select[id$=session] option:selected').text();
+            reload.show();
+            $.ajax({
+                type: 'POST',
+                url: browses[0]['url'] + `?semesterId=${semesterSelect.val()}&examinationTypeId=${sessionSelect.val()}&sessionText=${sessionText}`,
+                cache: true
+            }).done(function(res) {
+                browsePartial.empty().append(res);
+                reload.hide();
+            }).fail(function(a, b, c) {
+                console.log('It is error');
+                console.log(c);
+                loadErrorPage();
+            });
+        }
+        
+        $.getJSON('@Url.Action("CompletionSemesters", "Home")', function(res) {
+            let selectIndex = 0;
+            semesterSelect.empty();
+            semesterSelect.append('<option selected=selected disabled=disabled>Select Semester</option>');         
+            $.each(res, function(index, data) {
+                  if (data['isCurrent'] === true) {
+                      selectIndex = index + 1;
+                      semesterSelect.append('<option value="' + data['id'] + '">' + data['semesterText'] + '</option>');
+                  } else {
+                      semesterSelect.append('<option value="' + data['id'] + '">' + data['semesterText'] + '</option>');
+                  }
+            });
+            semesterSelect.prop('selectedIndex', selectIndex);
+            reload.hide();
+            loadSessions();
+        });
+        
+        semesterSelect.change(function() {
+            loadSessions();
+            browsePartial.empty();
+            pageSegment.hide();
+            rollBackSegmentUX();
+        });
+        
+        function loadSessions() {
+            reload.show();
+            browsePartial.empty();
+            const url = '@Url.Action("CompletionSessions", "Home")';
+            $.ajax({
+                type: 'POST',
+                url: url,
+                cache: true,
+                dataType: 'json',
+                data: { semesterId: semesterSelect.val() },
+                success: function(res) {
+                    sessionSelect.empty();
+                    sessionSelect.append('<option selected=selected disabled=disabled>Select Session</option>');         
+                    $.each(res, function(index, data) {
+                        sessionSelect.append('<option value="' + data['examinationTypeId'] + '">' + data['nameEn'] + '</option>');
+                    });
+                    reload.hide(); 
+                },
+                error: function(error) {
+                    console.log('It is error!!!');
+                    console.log(error);
+                }
+            });
+        }                   
+        
+        sessionSelect.change(function() {
+            browsePartial.empty();
+            pageSegment.hide();
+            rollBackSegmentUX();
+        }); 
+        
+        $('#search-browse').click(function() {
+            if (semesterSelect.val() != null && sessionSelect.val() != null) {        
+                rollBackSegmentUX();
+                pageSegment.show();
+                loadConflictStudent();
+            } 
+        });
+        
+        function loadErrorPage() {
+            const url = '@Url.Action("ErrorPage", "Home")';
+            $.ajax({
+                type: 'GET',
+                url: url,
+                cache: true
+            }).done(function(res) {
+                $('#main-page').empty().append(res);
+                reload.hide();
+            })
+        }
+    });
+</script>

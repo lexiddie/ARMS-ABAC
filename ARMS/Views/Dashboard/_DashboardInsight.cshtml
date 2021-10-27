@@ -1,0 +1,263 @@
+@model ARMS.ViewModels.DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="page-insight">
+    <div>
+        <div>
+            <img src="@Url.Content("~/assets/icon/campus.png")" alt=""/>
+            <label>Campus</label>
+        </div>
+        <div>
+            <label>@($"{Model.Campus:n0}")</label>
+        </div>
+    </div>
+    <div>
+        <div>
+            <img src="@Url.Content("~/assets/icon/building.png")" alt=""/>
+            <label>Building</label>
+        </div>
+        <div>
+            <label>@($"{Model.Building:n0}")</label>
+        </div>
+    </div>
+    <div>
+        <div>
+            <img src="@Url.Content("~/assets/icon/room.png")" alt=""/>
+            <label>Room</label>
+        </div>
+        <div>
+            <label>@($"{Model.Room:n0}")</label>
+        </div>
+    </div>
+</div>
+
+<div class="page-insight">
+    <div>
+        <div>
+            <img src="@Url.Content("~/assets/icon/examination_course.png")" alt=""/>
+            <label>Examination Course</label>
+        </div>
+        <div>
+            <label>@($"{Model.ExaminationCourse:n0}")</label>
+        </div>
+    </div>
+    <div>
+        <div>
+            <img src="@Url.Content("~/assets/icon/assigned.png")" alt=""/>
+            <label>Assigned Course</label>
+        </div>
+        <div>
+            <label>@($"{Model.AssignedCourse:n0}")</label>
+        </div>
+    </div>
+    <div>
+        <div>
+            <img src="@Url.Content("~/assets/icon/unassigned.png")" alt=""/>
+            <label>Unassigned Course</label>
+        </div>
+        <div>
+            <label>@($"{Model.UnassignedCourse:n0}")</label>
+        </div>
+    </div>
+</div>
+
+<div class="page-insight">
+    <div>
+        <div>
+            <img src="@Url.Content("~/assets/icon/calendar.png")" alt=""/>
+            <label>Day of Examination</label>
+        </div>
+        <div>
+            <label id="label-examination-day"></label>
+        </div>
+    </div>
+    <div>
+        <div>
+            <img src="@Url.Content("~/assets/icon/timeslot.png")" alt=""/>
+            <label>Time Slot of Examination</label>
+        </div>
+        <div>
+            <label id="label-time-slot"></label>
+        </div>
+    </div>
+    <div>    
+        <div>
+            <img src="@Url.Content("~/assets/icon/database.png")" alt=""/>
+            <label>Used Room of Examination</label>
+        </div>
+        <div>
+            <label id="label-used-room"></label>
+        </div>
+    </div>
+</div>
+
+<div class="page-selection">
+    <div>    
+        <img class="m-x-15" src="@Url.Content("~/assets/icon/insight.png")" alt=""/>
+        <label class="m-l-10 m-t-5">Report of Examination Room</label>
+    </div>    
+    <div>    
+        <label class="m-x-10">Examination Date</label>
+        <label for="examination-date"></label>
+        <select id="examination-date" class="main-select">
+            <option selected="selected" disabled="disabled">Select Date</option>
+        </select>
+        <label class="m-l-35 m-r-10">Examination Time</label>
+        <label for="examination-time"></label>
+        <select id="examination-time" class="main-select">
+            <option selected="selected" disabled="disabled">Select Time</option>
+        </select>
+        <button id="button-search-examination-room" class="main-btn main-btn-second m-l-35 m-r-15" type="submit">
+            <img src="@Url.Content("~/assets/icon/search.png")" alt=""/> 
+            <span>Search</span>
+        </button>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        
+        const reload = $('div[id$=main-reloading]');
+        const dateSelect = $('#examination-date');
+        const timeSelect = $('#examination-time');
+        const dashboardPartial = $('#dashboard-partial');
+        const btnSearchExaminationRoom = $('#button-search-examination-room');
+        
+        let examinationSlots;
+        let examinationDates = [];
+        let examinationTimes = [];
+        let examinationSlotId = 0;
+        
+        $.ajax({
+            type: 'POST',
+            url: '@Url.Action("LoadExaminationSlots", "Dashboard")?semesterId=@Model.SemesterId&examinationTypeId=@Model.ExaminationTypeId',
+            cache: true,
+            dataType: 'json',
+            success: function(res) {
+                examinationSlots = res['examinationSlots'];
+                loadExaminationDates();
+                loadExaminationUsedRoom();
+                console.log(examinationSlots);
+            },
+            error: function(error) {
+                console.log('It is error!!!');
+                console.log(error);
+            }
+        });
+
+        function loadExaminationDates() {
+            examinationDates = [];
+            examinationSlots.forEach(function(item) {
+                if (!(examinationDates.some(date => date['id'] === item['date']))) {
+                    const date = item['date'].split("T")[0].split("-");
+                    const year = date[0];
+                    const month = date[1];
+                    const day = date[2];
+                    const tempDate = {id: item['date'], date: `${day}/${month}/${year}`};
+                    examinationDates.push(tempDate);
+                }
+            });
+            console.log('Checking examination dates', examinationDates);
+            // examinationDates.sort((a, b) => a['date'].localeCompare(b['date']));
+            examinationDates.sort()
+            $('#label-examination-day').text(`${examinationDates.length.toLocaleString()}`);
+            $('#label-time-slot').text(`${examinationSlots.length.toLocaleString()}`);
+            
+            dateSelect.empty();
+            dateSelect.append('<option selected=selected disabled=disabled>Select Date</option>');
+            examinationDates.forEach(function(item) {
+                dateSelect.append('<option value="' + item['id'] + '">' + item['date'] + '</option>');
+            });
+        }
+        
+        function loadExaminationUsedRoom() {
+            $.ajax({
+                type: 'POST',
+                url: '@Url.Action("LoadExaminationUsedRoom", "Home")?semesterId=@Model.SemesterId&examinationTypeId=@Model.ExaminationTypeId',
+                cache: true,
+                dataType: 'json',
+                success: function(res) {
+                    console.log(res['totalUsedRoom']);
+                    $('#label-used-room').text(`${res['totalUsedRoom'].toLocaleString()}`);
+                    reload.hide();
+                },
+                error: function(error) {
+                    console.log('It is error!!!');
+                    console.log(error);
+                }
+          });
+        }
+        
+        dateSelect.change(function() {
+            examinationSlotId = 0;
+            dashboardPartial.empty();
+            if (dateSelect.val() != null) {
+                loadExaminationTimes();
+            }
+        });
+        
+        function loadExaminationTimes() {
+            reload.show();
+            examinationTimes = [];
+            examinationSlots.forEach(function(item) {
+                if (!(examinationTimes.some(date => date['timeStart'] === item['timeStart'] && date['timeEnd'] === item['timeEnd']))) {
+                    if (item['date'] === dateSelect.val()) {
+                        const timeStart = item['timeStart'].split(":");
+                        const timeEnd = item['timeEnd'].split(":");
+                        const tempTime = {timeStart: item['timeStart'], timeEnd: item['timeEnd'], time: `${timeStart[0]}:${timeStart[1]} - ${timeEnd[0]}:${timeEnd[1]}`};
+                        examinationTimes.push(tempTime);
+                    }
+                }
+            });
+            examinationTimes.sort((a, b) => a['time'].localeCompare(b['time']));
+            
+            timeSelect.empty();
+            timeSelect.append('<option selected=selected disabled=disabled>Select Time</option>');
+            examinationTimes.forEach(function(item) {
+                timeSelect.append('<option value="' + `${item['timeStart']}-${item['timeEnd']}` + '">' + item['time'] + '</option>');
+            });
+            reload.hide();
+        }
+        
+        timeSelect.change(function() {
+            examinationSlotId = 0;
+            dashboardPartial.empty();
+            if (dateSelect.val() != null && timeSelect.val() != null) {
+                loadExaminationSlot();
+            }
+        });
+        
+        function loadExaminationSlot() {
+            examinationSlots.forEach(function(item) {
+                const date = dateSelect.val();
+                const timeStart = timeSelect.val().split("-")[0];
+                const timeEnd = timeSelect.val().split("-")[1];
+                if (item['date'] === date && item['timeStart'] === timeStart && item['timeEnd'] === timeEnd) {
+                    examinationSlotId =  item['id'];
+                    console.log(examinationSlotId);
+                }
+            });
+        }
+        
+        btnSearchExaminationRoom.click(function() { 
+            if (examinationSlotId !== 0) {
+                reload.show();
+                $.ajax({
+                    type: 'POST',
+                    url: `@Url.Action("ExaminationRoom", "Dashboard")?examinationSlotId=${examinationSlotId}`,
+                    cache: true,
+                    success: function(res) {
+                        dashboardPartial.empty().append(res);
+                        reload.hide();
+                    },
+                    error: function(error) {
+                        console.log('It is error!!!');
+                        console.log(error);
+                    }
+                });
+            }
+        });
+    });
+</script>

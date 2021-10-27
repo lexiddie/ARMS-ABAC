@@ -1,0 +1,170 @@
+@using Newtonsoft.Json
+@model ARMS.ViewModels.ExaminationStudentViewModel
+@{
+    ViewData["Title"] = "Manual";
+    var i = 0;
+}
+
+<div class="page-selection">
+    <div>    
+        <img class="m-x-15" src="@Url.Content("~/assets/icon/clock.png")" alt=""/>
+        <label class="m-l-10 m-t-5" id="display-time"></label>
+    </div>    
+    <div>
+        <label></label>
+    </div>
+</div>
+
+<div class="page-breadcrumb">
+    <div class="unselected">
+        <button id="button-assigned-course" type="submit">
+            <span>Assigned Course</span>
+        </button>
+    </div>
+    <div class="unselected">
+        <button id="button-course-code" type="submit">
+            <span>@Model.CourseCodeName</span>
+        </button>
+    </div>
+    <div>
+        <button class="active" id="button-current" type="submit">
+            <span>Room @Model.RoomName</span>
+        </button>
+    </div>
+</div>
+
+<section class="page-table">
+    <div class="col-md-12 col-lg-12">
+        <div class="block block--underline">
+            <div class="block__body text-left height-3">
+                <div class="table-responsive">
+                    <table id="table-examination-student" class="table table-bordered table-hover">
+                        <thead>
+                        <tr>
+                            <th class="mn-w-40px w-40px"><img class="w-15px h-15px" src="~/assets/icon/sort.png" alt=""/></th>
+                            <th class="mn-w-150px w-auto">Student Code</th>
+                            <th class="mn-w-200px w-auto">Student Name</th>
+                            <th class="mn-w-150px w-150px">Section Number</th>
+                            <th class="mn-w-100px w-100px">Row Number</th>
+                            <th class="mn-w-100px w-100px">Seat Number</th>
+                            <th class="mn-w-80px w-80px no-sort">Status</th>
+                            <th class="mn-w-100px w-100px">Created On</th>
+                            <th class="mn-w-90px w-90px">Created By</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var item in JsonConvert.DeserializeObject<List<ExaminationStudent>>(Model.ExaminationStudents) )
+                        {
+                            i++;
+                            <tr>
+                                <td>@i.ToString()</td>
+                                <td>@item.Code</td>
+                                <td>@item.FullName</td>
+                                <td>@item.SectionNumber</td>
+                                <td>@item.Row</td>
+                                <td>@item.Seat</td>
+                                <td>
+                                    @{
+                                        var status = "Active";
+                                        var statusClass = "bg-success";
+                                        if (!item.IsActive) {
+                                            status = "Inactive";
+                                            statusClass = "bg-danger";    
+                                        }
+                                        <span class="label-status  @statusClass">@status</span>
+                                    }
+                                </td>
+                                <td>
+                                    @{
+                                        var dateTime = $"{item.CreatedDate} {item.CreatedTime}";
+                                        <span>@dateTime</span>
+                                    }
+                                </td>
+                                <td>@item.CreatedBy</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    $(document).ready(function() {
+        
+        $.ajax({
+            type: 'GET',
+            url: `@Url.Action("CurrentDateTime", "Home")`,
+            cache: true,
+            dataType: 'json'
+        }).done(function(res) {
+            $('#display-time').text(`Updated At ${res['dateTime']}`)
+        }).fail(function(a, b, c) {
+            console.log('It is error');
+            console.log(c);
+        });
+        
+        const reload = $('div[id$=main-reloading]');
+        const manualPartial = $('#manual-partial');
+        const btnAssignedCourse = $('#button-assigned-course');
+        const btnCourseCode = $('#button-course-code');
+        const btnCurrent = $('#button-current');
+        const semesterSelected = $('select[id$=semester]').val();
+        const sessionSelected = $('select[id$=session]').val();
+        const handleTable = $('#table-examination-student');
+        handleTable.DataTable({
+        "columnDefs": [{
+            "targets": "no-sort",
+            "orderable": false
+            }]
+        });
+        
+        btnAssignedCourse.click(function() {
+            reload.show();
+            const sessionText = $('select[id$=session] option:selected').text();
+            $.ajax({
+                type: 'POST',
+                url: `@Url.Action("AssignedCourse", "Manual")?semesterId=${semesterSelected}&examinationTypeId=${sessionSelected}&sessionText=${sessionText}`,
+                cache: true
+            }).done(function(res) {
+                manualPartial.empty().append(res);
+                reload.hide();
+            }).fail(function(a, b, c) {
+                console.log('It is error');
+                console.log(c);
+            }); 
+        });
+    
+        btnCourseCode.click(function() {
+            reload.show();
+            $.ajax({
+                type: 'POST',
+                url: `@Url.Action("ExaminationRoom", "Manual")?semesterId=${semesterSelected}&examinationTypeId=${sessionSelected}&examinationSlotId=@Model.ExaminationSlotId&courseId=@Model.CourseId&courseCodeName=@Model.CourseCodeName`,
+                cache: true
+            }).done(function(res) {
+                manualPartial.empty().append(res);
+                reload.hide();
+            }).fail(function(a, b, c) {
+                console.log('It is error');
+                console.log(c);
+            });         
+        });
+        
+        btnCurrent.click(function() {
+            reload.show();
+            $.ajax({
+                type: 'POST',
+                url: `@Url.Action("ExaminationStudent", "Manual")?examinationSlotId=@Model.ExaminationSlotId&courseId=@Model.CourseId&courseCodeName=@Model.CourseCodeName&roomId=@Model.RoomId&roomName=@Model.RoomName`,
+                cache: true
+            }).done(function(res) {
+                manualPartial.empty().append(res);
+                reload.hide();
+            }).fail(function(a, b, c) {
+                console.log('It is error');
+                console.log(c);
+            });         
+        }); 
+    }); 
+</script>

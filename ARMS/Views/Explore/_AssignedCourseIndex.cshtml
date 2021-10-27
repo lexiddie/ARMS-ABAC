@@ -1,0 +1,306 @@
+@model ARMS.ViewModels.AssignedCourseViewModel
+@{
+    ViewData["Title"] = "Explore";
+}
+
+<div class="page-selection">
+    <div>    
+        <img class="m-x-15" src="@Url.Content("~/assets/icon/clock.png")" alt=""/>
+        <label class="m-l-10 m-t-5" id="display-time"></label>
+    </div>    
+    <div>
+        <label></label>
+    </div>
+</div>
+
+<div style="position: relative;">
+    <div class="page-searchable">
+        <div>
+            <div>
+                <label>Faculty</label>
+                <label>Department</label>
+                <label>Course</label>
+            </div>
+            <div>
+                <div>
+                    <input id="search-faculty" type="text" placeholder="All Faculty" class="main-textfield"/>                           
+                </div>
+                <div>
+                    <input id="search-department" type="text" placeholder="All Department" class="main-textfield"/>
+                </div>
+                <div>
+                    <input id="search-course" type="text" placeholder="Course Code" class="main-textfield"/>
+                </div>
+                <div>
+                    <button id="confirm-filter" class="main-btn main-btn-second" type="submit">
+                        <span>Confirm</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div>
+            <label></label>
+        </div>
+    </div>
+
+    <div id="explore-assigned-course">
+        @if (Model.AssignedCourses != null)
+        {
+            <partial name="_AssignedCourse" model="@Model"></partial>
+        }
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        
+        $.ajax({
+            type: 'GET',
+            url: `@Url.Action("CurrentDateTime", "Home")`,
+            cache: true,
+            dataType: 'json'
+        }).done(function(res) {
+            $('#display-time').text(`Updated At ${res['dateTime']}`)
+        }).fail(function(a, b, c) {
+            console.log('It is error');
+            console.log(c);
+        });
+    
+        const reload = $('div[id$=main-reloading]');
+        
+        let jsonString = JSON.stringify(JSON.parse(@Json.Serialize(Model.AssignedCourses)));
+        
+        let courseId = 0;
+        let facultyId = 0;
+        let departmentId = 0;  
+        
+        let bloodHoundCourse;
+        let bloodHoundFaculty;
+        let bloodHoundDepartment;
+        
+        let courses;
+        let faculties;
+        let departments;
+        
+        const searchFaculty = $('#search-faculty');
+        const searchDepartment = $('#search-department');
+        const searchCourseCode = $('#search-course');
+        const confirmFilter = $('#confirm-filter');
+        
+        $.when(
+            $.getJSON('@Url.Action("CompletionFaculties", "Home")', function(res) {
+                faculties = res;
+            }),
+            $.getJSON('@Url.Action("CompletionDepartments", "Home")', function(res) {
+                departments = res;
+            }),
+            $.getJSON('@Url.Action("CompletionCourses", "Home")', function(res) {
+                courses = res;
+            })
+        ).then( function() {
+            completionFaculty(faculties, false);
+            completionDepartment(departments, false);
+            completionCourse(courses, false);
+        });
+        
+        searchFaculty.one('mouseenter', function() {
+            searchFaculty.on('typeahead:selected', function(event, data){
+                facultyId = data['id'];
+                searchDepartment.typeahead('val', '');
+                searchDepartment.val('');
+                departmentId = 0;
+                searchCourseCode.typeahead('val', '');
+                searchCourseCode.val('');
+                courseId = 0;
+                bindCompletion(true, false);
+            }).on('keydown', function(event) {
+                if (facultyId !== 0 && (event.which !== 13 && event.which !== 9)) {
+                    searchFaculty.typeahead('val', '');
+                    searchFaculty.val('')
+                    facultyId = 0;
+                    searchDepartment.typeahead('val', '');
+                    searchDepartment.val('');
+                    departmentId = 0;
+                    searchCourseCode.typeahead('val', '');
+                    searchCourseCode.val('');
+                    courseId = 0;
+                    restoreBinding(true, false);
+                }
+            }).on('typeahead:change', function() {
+                if (facultyId === 0) {
+                    searchFaculty.typeahead('val', '');
+                    searchFaculty.val('')
+                }
+            });
+        });
+        
+        searchDepartment.one('mouseenter', function() {
+            searchDepartment.on('typeahead:selected', function(event, data){
+                departmentId = data['id'];
+                searchCourseCode.typeahead('val', '');
+                searchCourseCode.val('');
+                courseId = 0;
+                bindCompletion(false, true);
+            }).on('keydown', function(event) {
+                if (departmentId !== 0 && (event.which !== 13 && event.which !== 9)) {
+                    searchDepartment.typeahead('val', '');
+                    searchDepartment.val('');
+                    departmentId = 0;
+                    searchCourseCode.typeahead('val', '');
+                    searchCourseCode.val('');
+                    courseId = 0;
+                    restoreBinding(false, true);
+                }
+            }).on('typeahead:change', function() {
+                if (departmentId === 0) {
+                    searchDepartment.typeahead('val', '');
+                    searchDepartment.val('');
+                }
+            });
+        });
+        
+        searchCourseCode.one('mouseenter', function() {
+            searchCourseCode.on('typeahead:selected', function(event, data){
+                courseId = data['id'];
+            }).on('keydown', function(event) {
+                if (courseId !== 0 && (event.which !== 13 && event.which !== 9)) {
+                    searchCourseCode.typeahead('val', '');
+                    searchCourseCode.val('');
+                    courseId = 0;
+                }
+            }).on('typeahead:change', function() {
+                if (courseId === 0) {
+                    searchCourseCode.typeahead('val', '');
+                    searchCourseCode.val('');
+                }
+            }); 
+        });
+        
+        function completionFaculty(data, update) {
+            update ? bloodHoundFaculty.clear() : null;
+            bloodHoundFaculty = new Bloodhound({
+                datumTokenizer: Bloodhound.tokenizers.obj.whitespace('abbreviation'),
+                queryTokenizer: Bloodhound.tokenizers.whitespace,
+                sufficient: 3,
+                local: data
+            });
+            bloodHoundFaculty.initialize(true);
+            searchFaculty.typeahead({
+                hint: true,
+                highlight: true,
+                minLength: 1
+            }, {
+                name: 'faculties',
+                displayKey: 'abbreviation',
+                source: bloodHoundFaculty.ttAdapter(),
+            }); 
+        }
+        
+        function completionDepartment(data, update) {
+            update ? bloodHoundDepartment.clear() : null;
+            bloodHoundDepartment = new Bloodhound({
+                datumTokenizer: Bloodhound.tokenizers.obj.whitespace('nameEn'),
+                queryTokenizer: Bloodhound.tokenizers.whitespace,
+                sufficient: 3,
+                local: data
+            });
+            bloodHoundDepartment.initialize(true);
+            searchDepartment.typeahead({
+                hint: true,
+                highlight: true,
+                minLength: 1,
+                triggerSelectOnValidInput: false
+            }, {
+                name: 'departments',
+                displayKey: 'nameEn',
+                source: bloodHoundDepartment.ttAdapter(),
+            });
+        }
+        
+        function completionCourse(data, update) {
+            update ? bloodHoundCourse.clear() : null;
+            bloodHoundCourse = new Bloodhound({
+                datumTokenizer: Bloodhound.tokenizers.obj.whitespace('code'),
+                queryTokenizer: Bloodhound.tokenizers.whitespace,
+                sufficient: 3,
+                local: data
+            });
+            bloodHoundCourse.initialize(true);
+            searchCourseCode.typeahead({
+                hint: true,
+                highlight: true,
+                minLength: 2
+            }, {
+                name: 'courses',
+                displayKey: 'code',
+                source: bloodHoundCourse.ttAdapter(),
+            });
+        }
+        
+        function bindCompletion(bindFaculty, bindDepartment) {
+            let tempCourses = [];
+            let tempDepartments = [];
+            
+            if (bindFaculty) {
+                courses.forEach(function(item) {
+                    if (item['facultyId'] === facultyId) {
+                        tempCourses.push(item);
+                    }
+                });
+                departments.forEach(function(item) {
+                    if (item['facultyId'] === facultyId) {
+                        tempDepartments.push(item);
+                    }
+                }); 
+                completionDepartment(tempDepartments, true); 
+                completionCourse(tempCourses, true);
+            } else if (bindDepartment) {
+                courses.forEach(function(item) {
+                    if (item['departmentId'] === departmentId) {
+                        tempCourses.push(item);
+                    }
+                });
+                completionCourse(tempCourses, true);
+            }            
+        }
+        
+        function restoreBinding(restoreFaculty, restoreDepartment) {
+            if (restoreFaculty) {
+                completionDepartment(departments, true); 
+                completionCourse(courses, true);
+            } else if (restoreDepartment) {
+                completionCourse(courses, true);
+            }
+        }
+        
+        function filterTable() {
+            const sessionText = $('select[id$=session] option:selected').text();
+            const url = '@Url.Action("FilterAssignedCourse", "Explore")';
+            const model = { SemesterId: '@Model.SemesterId', 
+                            ExaminationTypeId: '@Model.ExaminationTypeId', 
+                            CourseId: courseId, 
+                            FacultyId: facultyId, 
+                            DepartmentId: departmentId,
+                            SessionText: sessionText,
+                            Courses: jsonString };
+            reload.show();
+            $.ajax({
+                type: 'POST',
+                url: url,
+                data: model,
+                success: function(res) {
+                    $('#explore-assigned-course').empty().append(res);
+                    reload.hide();
+                },
+                error: function(error) {
+                    console.log('It is error!!!');
+                    console.log(error);
+                }
+            });
+        }
+        
+        confirmFilter.click(function() {
+            filterTable();
+        });
+    });
+</script>

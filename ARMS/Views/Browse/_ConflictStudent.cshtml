@@ -1,0 +1,91 @@
+@using Newtonsoft.Json
+@model ARMS.ViewModels.ConflictStudentViewModel
+@{
+    ViewData["Title"] = "Browse";
+    var i = 0;
+}
+
+<div class="page-selection">
+    <div>    
+        <img class="m-x-15" src="@Url.Content("~/assets/icon/clock.png")" alt=""/>
+        <label class="m-l-10 m-t-5" id="display-time"></label>
+    </div>    
+    <div>
+        <label></label>
+    </div>
+</div>
+
+<section class="page-table">
+    <div class="col-md-12 col-lg-12">
+        <div class="block block--underline">
+            <div class="block__body text-left height-3">
+                <div class="table-responsive">
+                    <table id="table-conflict-student" class="table table-bordered table-hover">
+                        <thead>
+                        <tr>
+                            <th class="mn-w-40px w-40px"><img class="w-15px h-15px" src="~/assets/icon/sort.png" alt=""/></th>
+                            <th class="mn-w-150px w-auto">Student Code</th>
+                            <th class="mn-w-200px w-auto">Student Name</th>
+                            <th class="mn-w-200px w-200px">Total Conflict Course</th>
+                            <th class="mn-w-200px w-200px">@Model.SessionText On</th>
+                            <th class="mn-w-80px w-80px no-sort">Action</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var item in JsonConvert.DeserializeObject<List<ConflictStudent>>(Model.ConflictStudents) )
+                        {
+                            i++;
+                            <tr>
+                                <td>@i.ToString()</td>
+                                <td>@item.Code</td> 
+                                <td>@item.FullName</td>
+                                <td>@item.TotalConflict</td>
+                                <td>@item.ExaminationSlot.ExaminationDateTime</td>
+                                <td class="display-flex">
+                                    <a asp-controller="Browse" asp-action="ConflictCourse" asp-route-studentCode="@item.Code" asp-route-studentName="@item.FullName" asp-route-examinationDateTime="@item.ExaminationSlot.ExaminationDateTime" asp-route-courseIds="@JsonConvert.SerializeObject(item.CourseIds)" class="btn-image btn-image-info w-23px h-23px"><img class="w-15px h-15px" src="@Url.Content("~/assets/icon/info.png")" alt=""/></a>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    $(document).ready(function() {
+        
+        $.ajax({
+            type: 'GET',
+            url: `@Url.Action("CurrentDateTime", "Home")`,
+            cache: true,
+            dataType: 'json'
+        }).done(function(res) {
+            $('#display-time').text(`Updated At ${res['dateTime']}`)
+        }).fail(function(a, b, c) {
+            console.log('It is error');
+            console.log(c);
+        });
+        
+        const reload = $('div[id$=main-reloading]');
+        const browsePartial = $('#browse-partial');
+        const handleTable = $('#table-conflict-student');
+        handleTable.DataTable({
+            "columnDefs": [{
+                "targets": "no-sort",
+                "orderable": false
+            }]
+        });
+        handleTable.on('click', '.btn-image-info', function(event) {
+            reload.show();
+            event.preventDefault();
+            const url = $(this).attr("href");
+            $.post(url).done(function(result) {
+                browsePartial.html(result);
+                reload.hide();
+            });
+        });
+    }); 
+</script>

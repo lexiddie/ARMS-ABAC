@@ -1,0 +1,78 @@
+@using Newtonsoft.Json
+@model ARMS.ViewModels.AssignedCourseViewModel
+@{
+    ViewData["Title"] = "Explore";
+    var i = 0;
+    var totalRoom = 0;
+}
+    
+<section class="page-table">
+    <div class="col-md-12 col-lg-12">
+        <div class="block block--underline">
+            <div class="block__body text-left height-3">
+                <div class="table-responsive">
+                    <table id="table-assigned-course" class="table table-bordered table-hover">
+                        <thead>
+                        <tr>
+                            <th class="mn-w-40px w-40px"><img class="w-15px h-15px" src="~/assets/icon/sort.png" alt=""/></th>
+                            <th class="mn-w-150px w-auto">Course</th>
+                            <th class="mn-w-150px w-150px">Total Section</th>     
+                            <th class="mn-w-150px w-150px">Total Student</th>
+                            <th class="mn-w-150px w-150px">Total Room</th>
+                            <th class="mn-w-200px w-200px">@Model.SessionText On</th>
+                            <th class="mn-w-80px w-80px no-sort">Action</th>
+                            <th class="mn-w-90px w-90px">Created By</th>
+                        </tr>
+                        </thead>
+                        <tbody>        
+                        @foreach (var item in JsonConvert.DeserializeObject<List<AssignedCourse>>(Model.AssignedCourses))
+                        {
+                            i++;
+                            totalRoom += item.TotalRoom;
+                            <tr>
+                                <td>@i.ToString()</td>
+                                <td class="text-ellipsis mn-w-150px w-auto">@item.CodeAndName</td>
+                                <td>@item.TotalSection</td>
+                                <td>@item.TotalStudent</td>
+                                <td>@item.TotalRoom</td>
+                                <td>@item.ExaminationSlot.ExaminationDateTime</td>
+                                <td class="display-flex">
+                                    <a asp-controller="Explore" asp-action="ExaminationRoom" asp-route-semesterId="@Model.SemesterId" asp-route-examinationTypeId="@Model.ExaminationTypeId" asp-route-examinationSlotId="@item.ExaminationSlot.Id" asp-route-examinationDateTime="@item.ExaminationSlot.ExaminationDateTime" asp-route-courseId="@item.CourseId" asp-route-courseCodeName="@item.CodeAndName" class="btn-image btn-image-info w-23px h-23px"><img class="w-15px h-15px" src="@Url.Content("~/assets/icon/info.png")" alt=""/></a>
+                                </td>
+                                <td>@item.CreatedBy</td>
+                            </tr>
+                        }
+                        @{
+                            Console.WriteLine($"Total Assigned Examination Room {totalRoom}");
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    $(document).ready(function() {
+        
+        const reload = $('div[id$=main-reloading]');
+        const explorePartial = $('#explore-partial');
+        const handleTable = $('#table-assigned-course');
+        handleTable.DataTable({
+        "columnDefs": [{
+            "targets": "no-sort",
+            "orderable": false
+            }]
+        });
+        handleTable.on('click', '.btn-image', function(event) {
+            reload.show();
+            event.preventDefault();
+            const url = $(this).attr("href");
+            $.post(url).done(function(result) {
+                explorePartial.html(result); 
+                reload.hide();
+            });
+        });
+    }); 
+</script>

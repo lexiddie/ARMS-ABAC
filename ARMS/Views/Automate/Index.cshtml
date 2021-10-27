@@ -1,0 +1,185 @@
+@{
+    ViewData["Title"] = "Automate";
+}
+
+<div class="page-content">    
+    <div>
+        <div class="page-selection">
+            <div>    
+                <img class="m-x-15" src="@Url.Content("~/assets/icon/auto.png")" alt=""/>
+                <label class="m-l-10 m-t-5">Automate Arrangement</label>
+            </div>    
+            <div>    
+                <label class="m-x-10">Semester</label>
+                <label for="semester"></label>
+                <select id="semester" class="main-select">
+                    <option selected="selected" disabled="disabled">Select Semester</option>
+                </select>
+                <label class="m-l-35 m-r-10">Session</label>
+                <label for="session"></label>
+                <select id="session" class="main-select">
+                    <option selected="selected" disabled="disabled">Select Session</option>
+                </select>
+                <button id="button-search-automate" class="main-btn main-btn-second m-l-35 m-r-15" type="submit">
+                    <img src="@Url.Content("~/assets/icon/search.png")" alt=""/> 
+                    <span>Search</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="page-segment" style="display: none;">
+            <div>
+                <button class="button-segment active" type="submit">
+                    <img src="@Url.Content("~/assets/icon/assigned.png")" alt=""/>
+                    <span>Assigned Course</span>
+                </button>
+                <button class="button-segment" type="submit">
+                    <img src="@Url.Content("~/assets/icon/unassigned.png")" alt=""/>
+                    <span>Unassigned Course</span>
+                </button>
+            </div>
+        </div>
+        
+        <div id="automate-partial"></div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        
+        let automates;
+        const reload = $('div[id$=main-reloading]');
+        const semesterSelect = $('#semester');
+        const sessionSelect = $('#session');
+        const automatePartial = $('#automate-partial');
+        const pageSegment = $('.page-segment');
+        const btnSearchAutomate = $('#button-search-automate');
+        
+        $.getJSON('@Url.Action("LoadAutomates", "Home")', function(res) {
+            automates = res;
+        });
+        
+        $('.button-segment').on('click', function() {
+            automatePartial.empty();
+            $('.button-segment').each(function(index, object) {
+                if (object.className.indexOf('active') !== -1) {
+                    object.className = object.className.replace(' active', '');
+                } 
+            });
+            $(this).addClass('active');
+            const currentIndex = $(this).index();
+            reload.show();
+            if (currentIndex === 0) {
+                loadAssignedCourse();
+            } else if (currentIndex === 1) {
+                loadUnassignedCourse();
+            }
+        }); 
+        
+        function rollBackSegmentUX() {
+            $('.button-segment').each(function(index, object) {
+                if (object.className.indexOf('active') !== -1) {
+                    object.className = object.className.replace(' active', '');
+                } 
+                index === 0 ? $(this).addClass('active') : null;
+            });
+        }
+        
+        function loadAssignedCourse() {
+            const sessionText = $('select[id$=session] option:selected').text();
+            $.ajax({
+                type: 'POST',
+                url: `${automates[0]['url']}?semesterId=${semesterSelect.val()}&examinationTypeId=${sessionSelect.val()}&sessionText=${sessionText}`,
+                cache: true
+            }).done(function(res) {
+                automatePartial.empty().append(res);
+                reload.hide();
+            }).fail(function(a, b, c) {
+                console.log('It is error');
+                console.log(c);
+            });
+        }
+        
+        function loadUnassignedCourse() {
+            const sessionText = $('select[id$=session] option:selected').text();
+            $.ajax({
+                type: 'POST',
+                url: `${automates[1]['url']}?semesterId=${semesterSelect.val()}&examinationTypeId=${sessionSelect.val()}&sessionText=${sessionText}`,
+                cache: true
+            }).done(function(res) {
+                automatePartial.empty().append(res);
+                reload.hide();
+            }).fail(function(a, b, c) {
+                console.log('It is error');
+                console.log(c);
+            });
+        }
+        
+        $.getJSON('@Url.Action("CompletionSemesters", "Home")', function(res) {
+            let selectIndex = 0;
+            semesterSelect.empty();
+            semesterSelect.append('<option selected=selected disabled=disabled>Select Semester</option>');         
+            $.each(res, function(index, data) {
+                if (data['isCurrent'] === true) {
+                    selectIndex = index + 1;
+                    semesterSelect.append('<option value="' + data['id'] + '">' + data['semesterText'] + '</option>');
+                } else {
+                    semesterSelect.append('<option value="' + data['id'] + '">' + data['semesterText'] + '</option>');
+                }
+            });
+            semesterSelect.prop('selectedIndex', selectIndex);
+            reload.hide();
+            loadSessions();
+        });
+        
+        semesterSelect.change(function() {
+            loadSessions();
+            pageSegment.hide();
+            rollBackSegmentUX();
+        });
+        
+        function loadSessions() {
+            reload.show();
+            automatePartial.empty();
+            const url = '@Url.Action("CompletionSessions", "Home")';
+            $.ajax({
+                type: 'POST',
+                url: url,
+                cache: true,
+                dataType: 'json',
+                data: { semesterId: semesterSelect.val() },
+                success: function(res) {
+                    sessionSelect.empty();
+                    sessionSelect.append('<option selected=selected disabled=disabled>Select Session</option>');         
+                    $.each(res, function(index, data) {
+                        sessionSelect.append('<option value="' + data['examinationTypeId'] + '">' + data['nameEn'] + '</option>');
+                    });
+                    reload.hide(); 
+                },
+                error: function(error) {
+                    console.log('It is error!!!');
+                    console.log(error);
+                }
+            });
+        }
+
+        sessionSelect.change(function() {
+            automatePartial.empty();
+            pageSegment.hide();
+            rollBackSegmentUX();
+        }); 
+
+        btnSearchAutomate.click(function() {
+            rollBackSegmentUX();
+            if (semesterSelect.val() != null && sessionSelect.val() != null) {
+                reload.show();
+                pageSegment.show();
+                loadAssignedCourse();
+            }
+        });
+    });
+</script>
+
+
+
+

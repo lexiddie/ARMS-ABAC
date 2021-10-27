@@ -1,0 +1,64 @@
+@model ARMS.ViewModels.ExploreViewModel
+@{
+    ViewData["Title"] = "Explore";
+}
+
+<div class="page-insight">
+    <div>
+        <div>
+            <img src="@Url.Content("~/assets/icon/study_course.png")" alt=""/>
+            <label>Study Course</label>
+        </div>
+        <div>
+            <label>@($"{Model.StudyCourse:n0}")</label>
+        </div>
+    </div>
+    <div>
+        <div>
+            <img src="@Url.Content("~/assets/icon/study_section.png")" alt=""/>
+            <label>Study Section</label>
+        </div>
+        <div>
+            <label>@($"{Model.StudySection:n0}")</label>
+        </div>
+    </div>
+    <div>
+        <div>
+            <img src="@Url.Content("~/assets/icon/study_seat.png")" alt=""/>
+            <label>Study Seat</label>
+        </div>
+        <div>
+            <label>@($"{Model.StudySeat:n0}")</label>
+        </div>
+    </div>
+</div>
+
+<div class="page-insight">
+    <div>
+        <div>
+            <img src="@Url.Content("~/assets/icon/examination_course.png")" alt=""/>
+            <label>Examination Course</label>
+        </div>
+        <div>
+            <label>@($"{Model.ExaminationCourse:n0}")</label>
+        </div>
+    </div>
+    <div>
+        <div>
+            <img src="@Url.Content("~/assets/icon/examination_section.png")" alt=""/>
+            <label>Examination Section</label>
+        </div>
+        <div>
+            <label>@($"{Model.ExaminationSection:n0}")</label>
+        </div>
+    </div>
+    <div>
+        <div>
+            <img src="@Url.Content("~/assets/icon/examination_seat.png")" alt=""/>
+            <label>Examination Seat</label>
+        </div>
+        <div>
+            <label>@($"{Model.ExaminationSeat:n0}")</label>
+        </div>
+    </div>
+</div>

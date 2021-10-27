@@ -1,0 +1,88 @@
+@using Newtonsoft.Json
+@model ARMS.ViewModels.ExaminationCourseViewModel
+@{
+    ViewData["Title"] = "Examination Course";
+    var i = 0;
+}
+
+<section class="page-table">
+    <div class="col-md-12 col-lg-12">
+        <div class="block block--underline">
+            <div class="block__body text-left height-3">
+                <div class="table-responsive">
+                    <table id="table-examination-course" class="table table-bordered table-hover">
+                        <thead>
+                        <tr>
+                            <th class="mn-w-40px w-40px"><img class="w-15px h-15px" src="~/assets/icon/sort.png" alt=""/></th>
+                            <th class="mn-w-250px w-auto">Course</th>
+                            <th class="mn-w-100px w-100px">Total Section</th>
+                            <th class="mn-w-150px w-150px">Total Student</th>
+                            <th class="mn-w-200px w-200px">Midterm On</th>
+                            <th class="mn-w-200px w-200px">Final On</th>
+                            <th class="mn-w-80px w-80px no-sort">Action</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var item in JsonConvert.DeserializeObject<List<ExaminationCourse>>(Model.ExaminationCourses))
+                        {
+                            i++;
+                            <tr>
+                                <td>@i.ToString()</td>
+                                <td class="text-ellipsis mn-w-250px w-auto">@item.CodeAndName</td>
+                                <td>@($"{item.TotalSection:n0}")</td>
+                                <td>@($"{item.TotalStudent:n0}")</td>
+                                <td>@{
+                                        var midterm = "No Midterm";
+                                        if (item.Midterm != null)
+                                        {
+                                            midterm = item.Midterm.ExaminationDateTime;
+                                        }
+                                        <span>@midterm</span>    
+                                    }
+                                </td>
+                                <td>@{
+                                        var final = "No Final";
+                                        if (item.Final != null)
+                                        {
+                                            final = item.Final.ExaminationDateTime;
+                                        }
+                                        <span>@final</span>
+                                    }
+                                </td>
+                                <td class="display-flex">
+                                    <a asp-controller="ExaminationCourse" asp-action="Section" asp-route-semesterId="@Model.SemesterId" asp-route-courseId="@item.Id" asp-route-courseCodeName="@item.CodeAndName"  class="btn-image btn-image-info w-23px h-23px"><img class="w-15px h-15px" src="@Url.Content("~/assets/icon/info.png")" alt=""/></a>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    $(document).ready(function() {
+
+        const reload = $('div[id$=main-reloading]');
+        const examinationCoursePartial = $('#examination-course-partial');
+        const handleTable = $('#table-examination-course');
+        handleTable.DataTable({
+        "columnDefs": [{
+            "targets": "no-sort",
+            "orderable": false
+            }]
+        });
+
+        handleTable.on('click', '.btn-image', function(event) {
+            reload.show();
+            event.preventDefault();
+            const url = $(this).attr("href");
+            $.post(url).done(function(result) {
+                examinationCoursePartial.html(result); 
+                reload.hide();
+            });
+        });
+    }); 
+</script>

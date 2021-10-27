@@ -1,0 +1,128 @@
+﻿@{
+    ViewData["Title"] = "ARMS";
+}
+
+<div>
+    <script>
+        $(document).ready(function() {
+            
+            const database = firebase.database();
+            const reload = $('div[id$=main-reloading]');
+            const header = $('.main-header');
+            const content = $('.main-content');
+            const login = $('.main-login');
+            let isLogin;
+            let urlDirectory;
+            let stage = 0;
+           
+            
+            // const userKey = database.ref().child('test').push().key;
+            // const data = {Name: 'Lex'};
+            // database.ref().child('test').child(userKey).set(data);
+           
+            
+            // database.ref().child('assigning').once('value').then(function(snapshot) {
+            //     console.log(`Checking Snapshot value`, snapshot.val());
+            //     console.log(`Checking IsProcessing Value`, snapshot.val()['isProcessing']);
+            // });
+            
+            // database.ref().child('assigning').on("child_changed", function(snapshot) {
+            //     console.log(`Realtime IsProcessing Value`, snapshot.val()['isProcessing']);
+            // });
+            
+
+            $.getJSON('@Url.Action("CheckLogin", "Home")', function(res) {
+                console.log(res);
+                isLogin = res['isLogin'];
+                console.log(`Check Login ${isLogin}`);
+                isLogin ? urlDirectory = '@Url.Action("Index", "Browse")' : urlDirectory = '@Url.Action("Index", "Login")';
+                console.log(`Action link ${urlDirectory}`);
+                
+                $.get(urlDirectory).done(function(result) {
+                    if (isLogin) {
+                        reload.show();
+                        console.log('Dashboard view');
+                        login.hide();
+                        header.show();
+                        content.show();
+                        $('#main-page').html(result);
+                    } else {
+                        console.log('Login view');
+                        login.show();   
+                        header.hide();
+                        content.hide();
+                        $('#main-login').html(result);
+                    }
+                }).fail(function(a, b, c) {
+                    console.log('It is error');
+                    console.log(c);
+                    loadErrorPage();
+                });
+            });
+
+            function loadErrorPage() {
+                const url = '@Url.Action("ErrorPage", "Home")';
+                $.ajax({
+                    type: 'GET',
+                    url: url,
+                    cache: true
+                }).done(function(res) {
+                    $('#main-page').empty().append(res);
+                    reload.hide();
+                })
+            }
+            
+            // const assigning = database.ref().child('assigning');
+            //
+            // database.ref().child('assigning').on('child_changed', function(data) {
+            //     assigning.once('value').then(function(snapshot) {
+            //         if (snapshot.val()['isAutomate'] === true) {
+            //             if (data.key === 'isComputing' && data.val() === true) {
+            //                 stage += 1;
+            //                 loadAssignmentInfo('The Automate Assignment has completed “The retrieving Data” 1/3 Stages.');      
+            //             } else if (data.key === 'isUpdating' && data.val() === true) {
+            //                 stage += 1;
+            //                 loadAssignmentInfo('The Automate Assignment has completed “The computing Data” 2/3 Stages.');
+            //             } 
+            //         }
+            //         console.log(data.key, data.val());   
+            //     });
+            //    
+            //     if (data.key === 'isProcessing' && data.val() === false && stage >= 2) {
+            //         stage = 0;
+            //         loadAssignmentInfo('The Automate Assignment has completed “The updating Data” 3/3 Stages.');    
+            //     }
+            //    
+            //     // if (data.key === 'isComputing' && data.val() === true && isAutomate) {
+            //     //     stage += 1;
+            //     //     loadAssignmentInfo('The Automate Assignment has completed “The retrieving Data” 1/3 Stages.');      
+            //     // } else if (data.key === 'isUpdating' && data.val() === true && stage === 1 && isAutomate) {
+            //     //     stage += 1;
+            //     //     loadAssignmentInfo('The Automate Assignment has completed “The computing Data” 2/3 Stages.');
+            //     // } else if (data.key === 'isProcessing' && data.val() === false && stage === 2 && isAutomate) {
+            //     //     stage = 0;
+            //     //     loadAssignmentInfo('The Automate Assignment has completed “The updating Data” 3/3 Stages.');    
+            //     // }
+            //     // console.log(data.key, data.val());
+            //     // console.log(`Checking Automate ${isAutomate}`);
+            // });
+            
+            // database.ref().child('assigning').once('value').then(function(snapshot) {
+            //    
+            // });
+            
+            function loadAssignmentInfo(info) {
+                bootbox.alert(info).find('.modal-content').css({
+                    'margin-top': function (){
+                        const w = $( window ).height();
+                        const b = $(".modal-dialog").height();
+                        const h = (w - b) / 2;
+                        return h + "px";
+                    },
+                    'width': '39rem'
+                }); 
+            }
+        });                                                                                       
+    </script>
+</div>
+

@@ -1,0 +1,42 @@
+@model ARMS.ViewModels.BuildingViewModel
+
+@{
+    ViewData["Title"] = "Building";
+}
+
+<div class="page-content">
+    <div>
+        <div class="page-selection">
+            <div>    
+                <img class="m-x-15" src="@Url.Content("~/assets/icon/building.png")" alt=""/>
+                <label class="m-l-10 m-t-5">Building</label>
+            </div>    
+            <div>    
+                <label></label>
+            </div>
+        </div>
+        
+        <div id="building-partial"></div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        
+        const reload = $('div[id$=main-reloading]');
+        const buildingPartial = $('#building-partial');
+        
+        reload.show();
+        $.ajax({
+            type: 'GET',
+            url: '@Url.Action("Building", "Building")',
+            cache: true
+        }).done(function(res) {
+            buildingPartial.empty().append(res);
+            reload.hide();
+        }).fail(function(a, b, c) {
+            console.log('It is error');
+            console.log(c);
+        });
+    });
+</script>

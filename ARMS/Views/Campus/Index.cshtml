@@ -1,0 +1,40 @@
+@{
+    ViewData["Title"] = "Campus";
+}
+
+<div class="page-content">  
+    <div>
+        <div class="page-selection">
+            <div>    
+                <img class="m-x-15" src="@Url.Content("~/assets/icon/campus.png")" alt=""/>
+                <label class="m-l-10 m-t-5">Campus</label>
+            </div>    
+            <div>    
+                <label></label>
+            </div>
+        </div>
+        
+        <div id="campus-partial"></div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+       
+        const reload = $('div[id$=main-reloading]');
+        const campusPartial = $('#campus-partial');
+        
+        reload.show();
+        $.ajax({
+            type: 'GET',
+            url: '@Url.Action("Campus", "Campus")',
+            cache: true
+        }).done(function(res) {
+            campusPartial.empty().append(res);
+            reload.hide();
+        }).fail(function(a, b, c) {
+            console.log('It is error');
+            console.log(c);
+        });
+    });
+</script>

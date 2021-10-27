@@ -1,0 +1,87 @@
+﻿@using Newtonsoft.Json
+@model ARMS.ViewModels.SeatingStudentViewModel
+@{
+    ViewData["Title"] = "Browse";
+    var index = 0;
+    var max = 0;
+    var current = 0;
+    var seatingRoom = JsonConvert.DeserializeObject<SeatingRoom>(Model.SeatingRoom);
+    var page = seatingRoom.TotalStudent % 25 == 0 ? seatingRoom.TotalStudent / 25 : seatingRoom.TotalStudent / 25 + 1;
+    Console.WriteLine($"Checking the pages {page}");
+}
+
+@for (var j = 0; j < page; j++)
+{
+    @if (seatingRoom.TotalStudent <= 25)
+    {
+        max = seatingRoom.TotalStudent;
+        Console.WriteLine("The first loop");
+    }
+    else if (page * 25 > seatingRoom.TotalStudent && j == page - 1)
+    {
+        max = seatingRoom.TotalStudent - (page - 1) * 25;
+        Console.WriteLine($"Last max {max}");
+    } 
+    else if ((max + j)* 25 == current)
+    {
+        max = 25;
+        Console.WriteLine($"the current of {j}");
+    } 
+    <div id="examination-seating-report@(j)">
+        <div> 
+            <div>
+                <div>
+                    <label>Assumption University</label>
+                </div>
+                <div>
+                    <label>Examination Seating Report</label>
+                </div>
+            </div>
+            <div>
+                <label>Semester: @(Model.SemesterText)</label>
+                <label>Examination on: @(seatingRoom.ExaminationDateTime)</label>
+                <label>Examination Type: @(Model.SessionText)</label>
+                <label>Examination Campus: @(seatingRoom.CampusName)</label>
+                <label>Examination Room: @(seatingRoom.Name)</label>
+            </div>
+        </div>
+        <div>
+            <div class="table-responsive">
+                <table id="table-seating-student" class="table-pdf table-pdf-bordered table-pdf-hover">
+                    <thead>
+                    <tr>
+                        <th class="w-auto">SEQ</th>
+                        <th class="w-auto">Student Code</th>
+                        <th class="w-auto">Student Name</th>
+                        <th class="w-auto">Course</th>
+                        <th class="w-auto">Section</th>
+                        <th class="w-auto">Seat</th>
+                        <th class="w-20x">Signature</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @while (index < max)
+                    {
+                        current++;
+                        <tr>
+                            <td>@current.ToString()</td>
+                            <td>@seatingRoom.SeatingStudents[current - 1].Code</td>
+                            <td>@seatingRoom.SeatingStudents[current - 1].FullName</td>
+                            <td>@seatingRoom.SeatingStudents[current - 1].CourseCode</td>
+                            <td>@seatingRoom.SeatingStudents[current - 1].Section</td>
+                            <td>@seatingRoom.SeatingStudents[current - 1].SeatNumber</td>
+                            <td></td>
+                        </tr>
+                        index++;
+                    }
+                    @{
+                        index = 0;
+                        max = 0;
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+

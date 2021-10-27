@@ -1,0 +1,427 @@
+@model ARMS.ViewModels.DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="page-selection">
+    <div>    
+        <img class="m-x-15" src="@Url.Content("~/assets/icon/clock.png")" alt=""/>
+        <label class="m-l-10 m-t-5" id="display-time"></label>
+    </div>    
+    <div>
+        <label></label>
+    </div>
+</div>
+
+<div style="position: relative;">
+    <div class="page-searchable">
+        <div>
+            <div>
+                <label>Campus</label>
+                <label>Building</label>
+                <label>Floor</label>
+                <label>Room</label>
+            </div>
+            <div>
+                <div>
+                    <input id="search-campus" type="text" placeholder="All Campus" class="main-textfield"/>
+                </div>
+                <div>
+                    <input id="search-building" type="text" placeholder="All Building"class="main-textfield"/>
+                </div>
+                <div>
+                    <input id="search-floor" type="text" placeholder="All Floor" class="main-textfield"/>
+                </div>
+                <div>
+                    <input id="search-room" type="text" placeholder="Room Name" class="main-textfield"/>
+                </div>
+                <div>
+                    <button id="confirm-filter" class="main-btn main-btn-second" type="submit">
+                        <span>Confirm</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div>
+            <label></label>
+        </div>
+    </div>
+
+    <div id="examination-room-partial">
+        @if (Model.ExaminationRooms != null)
+        {
+            <partial name="_ExaminationRoom" model="@Model"></partial>
+        }
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        
+        $.ajax({
+            type: 'GET',
+            url: `@Url.Action("CurrentDateTime", "Home")`,
+            cache: true,
+            dataType: 'json'
+        }).done(function(res) {
+            $('#display-time').text(`Updated At ${res['dateTime']}`)
+        }).fail(function(a, b, c) {
+            console.log('It is error');
+            console.log(c);
+        });
+        
+        const reload = $('div[id$=main-reloading]');
+        let jsonString = JSON.stringify(JSON.parse(@Json.Serialize(Model.ExaminationRooms)));
+                                            
+        let roomId = 0;
+        let floor = 0;
+        let buildingId = 0;
+        let campusId = 0;  
+        
+        let bloodHoundRooms;
+        let bloodHoundFloors;
+        let bloodHoundBuildings;
+        let bloodHoundCampuses;
+        
+        let rooms;
+        let floors;
+        let buildings;
+        let campuses;
+        
+        const searchCampus = $('#search-campus');
+        const searchBuilding = $('#search-building');
+        const searchFloor = $('#search-floor');
+        const searchRoom = $('#search-room');
+        const confirmFilter = $('#confirm-filter');
+        
+        $.when(
+            $.getJSON('@Url.Action("CompletionCampuses", "Home")', function(res) {
+                campuses = res;
+            }),
+            $.getJSON('@Url.Action("CompletionBuildings", "Home")', function(res) {
+                buildings = res;
+            }),
+            $.getJSON('@Url.Action("CompletionRooms", "Home")', function(res) {
+                rooms = res;
+        })
+        ).then( function() {
+            floors = loadFloors(buildings);
+            completionCampus(campuses, false);
+            completionBuilding(buildings, false);
+            completionFloor(floors, false);
+            completionRoom(rooms, false);
+        });
+        
+        
+        function loadFloors(currentBuildings) {
+            const tempFloors = [];
+            let currentFloor = {floor: 0};
+            currentBuildings.forEach(function(item) {
+                if (item['floorNumber'] > currentFloor['floor']) {
+                    currentFloor['floor'] = item['floorNumber'];
+                }
+            });
+            for (let i = 1; i <= currentFloor['floor']; i++) {
+                const tempFloor = {floor: i};
+                tempFloors.push(tempFloor);
+            }
+            return tempFloors;  
+        }
+        
+        function loadFloorsByBuildingId(buildingId) {
+            const tempFloors = [];
+            let tempBuilding;
+            for (let building of buildings) {
+                if (building['id'] === buildingId) {
+                    tempBuilding = building;
+                    break;
+                }
+            }
+            for (let i = 1; i <= tempBuilding['floorNumber']; i++) {
+                const tempFloor = {floor: i};
+                tempFloors.push(tempFloor);
+            }
+            return tempFloors;
+        }
+        
+        searchCampus.one('mouseenter', function() {
+            searchCampus.on('typeahead:selected', function(event, data){
+                campusId = data['id'];
+                searchBuilding.typeahead('val', '');
+                searchBuilding.val('');
+                buildingId = 0;
+                searchFloor.typeahead('val', '');
+                searchFloor.val('');
+                floor = 0; 
+                searchRoom.typeahead('val', '');
+                searchRoom.val('');
+                roomId = 0; 
+                bindCompletion(true, false, false);
+            }).on('keydown', function(event) {
+                if (campusId !== 0 && (event.which !== 13 && event.which !== 9)) {
+                    searchCampus.typeahead('val', '');
+                    searchCampus.val('');
+                    campusId = 0;
+                    searchBuilding.typeahead('val', '');
+                    searchBuilding.val('');
+                    buildingId = 0;
+                    searchFloor.typeahead('val', '');
+                    searchFloor.val('');
+                    floor = 0;
+                    searchRoom.typeahead('val', '');
+                    searchRoom.val('');
+                    roomId = 0; 
+                    restoreBinding(true, false, false);
+                }
+            }).on('typeahead:change', function() {
+                if (campusId === 0) {
+                    searchCampus.typeahead('val', '');
+                    searchCampus.val('');
+                }
+            });
+        });
+        
+        searchBuilding.one('mouseenter', function() {
+            searchBuilding.on('typeahead:selected', function(event, data){
+                buildingId = data['id'];
+                searchFloor.typeahead('val', '');
+                searchFloor.val('');
+                floor = 0; 
+                searchRoom.typeahead('val', '');
+                searchRoom.val('');
+                roomId = 0; 
+                bindCompletion(false, true, false);
+            }).on('keydown', function(event) {
+                if (buildingId !== 0 && (event.which !== 13 && event.which !== 9)) {
+                    searchBuilding.typeahead('val', '');
+                    searchBuilding.val('');
+                    buildingId = 0;
+                    searchFloor.typeahead('val', '');
+                    searchFloor.val('');
+                    floor = 0;
+                    searchRoom.typeahead('val', '');
+                    searchRoom.val('');
+                    roomId = 0; 
+                    restoreBinding(false, true, false);
+                }
+            }).on('typeahead:change', function() {
+                if (buildingId === 0) {
+                    searchBuilding.typeahead('val', '');
+                    searchBuilding.val('');
+                }
+            });
+        });
+        
+        searchFloor.one('mouseenter', function() {
+            searchFloor.on('typeahead:selected', function(event, data){
+                floor = data['floor'];
+                searchRoom.typeahead('val', '');
+                searchRoom.val('');
+                roomId = 0; 
+                bindCompletion(false, false, true);
+            }).on('keydown', function(event) {
+                if (floor !== 0 && (event.which !== 13 && event.which !== 9)) {
+                    searchFloor.typeahead('val', '');
+                    searchFloor.val('');
+                    floor = 0;
+                    searchRoom.typeahead('val', '');
+                    searchRoom.val('');
+                    roomId = 0; 
+                    restoreBinding(false, false, true);
+                }
+            }).on('typeahead:change', function() {
+                if (floor === 0) {
+                    searchFloor.typeahead('val', '');
+                    searchFloor.val('');
+                }
+            });
+        });
+        
+        searchRoom.one('mouseenter', function() {
+            searchRoom.on('typeahead:selected', function(event, data){
+                roomId = data['id'];
+            }).on('keydown', function(event) {
+                if (roomId !== 0 && (event.which !== 13 && event.which !== 9)) {
+                    searchRoom.typeahead('val', '');
+                    searchRoom.val('');
+                    roomId = 0; 
+                }
+            }).on('typeahead:change', function() {
+                if (roomId === 0) {
+                    searchRoom.typeahead('val', '');
+                    searchRoom.val('');
+                }
+            });  
+        });
+        
+        function completionCampus(data, update) {
+            update ? bloodHoundCampuses.clear() : null;
+            bloodHoundCampuses = new Bloodhound({
+                datumTokenizer: Bloodhound.tokenizers.obj.whitespace('nameEn'),
+                queryTokenizer: Bloodhound.tokenizers.whitespace,
+                sufficient: 3,
+                local: data
+            });
+            bloodHoundCampuses.initialize(true);
+            searchCampus.typeahead({
+                hint: true,
+                highlight: true,
+                minLength: 1
+            }, {
+                name: 'campuses',
+                displayKey: 'nameEn',
+                source: bloodHoundCampuses.ttAdapter(),
+            }); 
+        }
+        
+        function completionBuilding(data, update) {
+            update ? bloodHoundBuildings.clear() : null;
+            bloodHoundBuildings = new Bloodhound({
+                datumTokenizer: Bloodhound.tokenizers.obj.whitespace('nameEn'),
+                queryTokenizer: Bloodhound.tokenizers.whitespace,
+                sufficient: 3,
+                local: data
+            });
+            bloodHoundBuildings.initialize(true);
+            searchBuilding.typeahead({
+                hint: true,
+                highlight: true,
+                minLength: 1,
+                triggerSelectOnValidInput: false
+            }, {
+                name: 'buildings',
+                displayKey: 'nameEn',
+                source: bloodHoundBuildings.ttAdapter(),
+            });
+        }
+        
+        
+        function completionFloor(data, update) {
+            update ? bloodHoundFloors.clear() : null;
+            bloodHoundFloors = new Bloodhound({
+                datumTokenizer: Bloodhound.tokenizers.obj.whitespace('floor'),
+                queryTokenizer: Bloodhound.tokenizers.whitespace,
+                sufficient: 3,
+                local: data
+            });
+            bloodHoundFloors.initialize(true);
+            searchFloor.typeahead({
+                hint: true,
+                highlight: true,
+                minLength: 1,
+                triggerSelectOnValidInput: false
+            }, {
+                name: 'floors',
+                displayKey: 'floor',
+                source: bloodHoundFloors.ttAdapter(),
+            });
+        }
+        
+        function completionRoom(data, update) {
+            update ? bloodHoundRooms.clear() : null;
+            bloodHoundRooms = new Bloodhound({
+                datumTokenizer: Bloodhound.tokenizers.obj.whitespace('name'),
+                queryTokenizer: Bloodhound.tokenizers.whitespace,
+                sufficient: 3,
+                local: data
+            });
+            bloodHoundRooms.initialize(true);
+            searchRoom.typeahead({
+                hint: true,
+                highlight: true,
+                minLength: 2,
+                triggerSelectOnValidInput: true
+            }, {
+                name: 'rooms',
+                displayKey: 'name',
+                source: bloodHoundRooms.ttAdapter(),
+            });
+        }
+        
+        function bindCompletion(bindCampus, bindBuilding, bindFloor) {
+            let tempRooms = [];
+            let tempFloors = [];
+            let tempBuildings = [];
+            
+            if (bindCampus) {
+                rooms.forEach(function(item) {
+                    if (item['campusId'] === campusId) {
+                        tempRooms.push(item);
+                    }
+                });
+                buildings.forEach(function(item) {
+                    if (item['campusId'] === campusId) {
+                        tempBuildings.push(item);
+                    }
+                });
+                tempFloors = loadFloors(tempBuildings);
+                completionBuilding(tempBuildings, true);
+                completionFloor(tempFloors, true);
+                completionRoom(tempRooms, true);
+            }   else if (bindBuilding) {
+                rooms.forEach(function(item) {
+                   if (item['buildingId'] === buildingId) {
+                       tempRooms.push(item);
+                   }
+                });
+                tempFloors = loadFloorsByBuildingId(buildingId);
+                completionFloor(tempFloors, true);
+                completionRoom(tempRooms, true);
+            }   else if (bindFloor) {
+                rooms.forEach(function(item) {
+                    if (item['floor'] === floor && buildingId === 0 && campusId === 0) {
+                        tempRooms.push(item);
+                    } else if (item['floor'] === floor && item['buildingId'] === buildingId) {
+                        tempRooms.push(item);
+                    } else if (item['floor'] === floor && buildingId === 0 && item['campusId'] === campusId) {
+                        tempRooms.push(item);
+                    }
+                });
+                completionRoom(tempRooms, true);
+            }            
+        }
+        
+        function restoreBinding(restoreCampus, restoreBuilding, restoreFloor) {
+            if (restoreCampus) {
+                completionBuilding(buildings, true);
+                completionFloor(floors, true); 
+                completionRoom(rooms, true);
+            } else if (restoreBuilding) {
+                completionFloor(floors, true); 
+                completionRoom(rooms, true);
+            } else if (restoreFloor) {
+                completionRoom(rooms, true);
+            }
+        }
+        
+        function filterTable() {
+            const url = '@Url.Action("FilterExaminationRoom", "Dashboard")';
+            const model = { CampusId: campusId, 
+                            BuildingId: buildingId, 
+                            RoomId: roomId, 
+                            Floor: floor,
+                            ExaminationSlotId: @Model.ExaminationSlotId,
+                            Rooms: jsonString };
+            reload.show();
+            $.ajax({
+                type: 'POST',
+                url: url,
+                data: model,
+                success: function(res) {
+                    $('#examination-room-partial').empty().append(res);
+                    reload.hide();
+                },
+                error: function(error) {
+                    console.log('It is error!!!');
+                    console.log(error);
+                }
+            });
+        }
+        
+        confirmFilter.click(function() {
+            filterTable();
+        });
+        
+
+    }); 
+</script>

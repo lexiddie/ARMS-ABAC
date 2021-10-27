@@ -1,0 +1,61 @@
+ <nav class="main-sidebar">
+    <ul class="nav-list">
+        <li class="nav-menu">@Html.ActionLink("Browse", "Index", "Browse", null, new {})</li>
+        <li class="nav-menu">@Html.ActionLink("Dashboard", "Index", "Dashboard", null, new {})</li>
+
+        <li class="nav-item">
+            <div>
+                <button onclick="handleToggle(0)">
+                    <span>Seat Arrangement</span>
+                    <img src="~/assets/icon/arrow_down.png" alt=""/>
+                </button>
+                <ul id="seatArrangement" class="nav-collapse">
+                    <li>@Html.ActionLink("Explore", "Index", "Explore", null, new {@class = "main-link"})</li>
+                    <li>@Html.ActionLink("Manual", "Index", "Manual", null, new {@class = "main-link"})</li>
+                    <li>@Html.ActionLink("Automate", "Index", "Automate", null, new {@class = "main-link"})</li>
+                </ul>
+            </div>
+        </li>
+
+        <li class="nav-item">
+            <div>
+                <button onclick="handleToggle(1)">
+                    <span>Room Management</span>
+                    <img src="~/assets/icon/arrow_down.png" alt=""/>
+                </button>
+                <ul id="roomManagement" class="nav-collapse">
+                    <li>@Html.ActionLink("Campus", "Index", "Campus", null, new {@class = "main-link"})</li>
+                    <li>@Html.ActionLink("Building", "Index", "Building", null, new {@class = "main-link"})</li>
+                    <li>@Html.ActionLink("Room", "Index", "Room", null, new {@class = "main-link"})</li>
+                </ul>
+            </div>
+        </li>
+
+        <li class="nav-item">
+            <div>
+                <button onclick="handleToggle(2)">
+                    <span>Period Management</span>
+                    <img src="~/assets/icon/arrow_down.png" alt=""/>
+                </button>
+                <ul id="periodManagement" class="nav-collapse">
+                    <li>@Html.ActionLink("Semester", "Index", "Semester", null, new {@class = "main-link"})</li>
+                </ul>
+            </div>
+        </li>
+
+        <li class="nav-item">
+            <div>
+                <button onclick="handleToggle(3)">
+                    <span>Course Management</span>
+                    <img src="~/assets/icon/arrow_down.png" alt=""/>
+                </button>
+                <ul id="courseManagement" class="nav-collapse">
+                    <li>@Html.ActionLink("Course", "Index", "Course", null, new {@class = "main-link"})</li>
+                    <li>@Html.ActionLink("Examination Course", "Index", "ExaminationCourse", null, new {@class = "main-link"})</li>
+                </ul>
+            </div>
+        </li>
+    </ul>
+</nav>
+
+

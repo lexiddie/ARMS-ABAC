@@ -1,0 +1,165 @@
+@using Newtonsoft.Json
+@model ARMS.ViewModels.CampusViewModel
+@{
+    ViewData["Title"] = "Room";
+    var i = 0;
+}
+
+<div class="page-selection">
+    <div>    
+        <img class="m-x-15" src="@Url.Content("~/assets/icon/clock.png")" alt=""/>
+        <label class="m-l-10 m-t-5" id="display-time"></label>
+    </div>    
+    <div>
+        <label></label>
+    </div>
+</div>
+
+<div class="page-breadcrumb">
+    <div class="unselected">
+        <button id="button-campus" type="submit">
+            <span>Campus</span>
+        </button>
+    </div>
+    <div class="unselected">
+        <button id="button-campus-name" type="submit">
+            <span>@Model.CampusName</span>
+        </button>
+    </div>
+    <div>
+        <button class="active" id="button-current" type="submit">
+            <span>@Model.BuildingName</span>
+        </button>
+    </div>
+</div>
+
+<section class="page-table">
+    <div class="col-md-12 col-lg-12">
+        <div class="block block--underline">
+            <div class="block__body text-left height-3">
+                <div class="table-responsive">
+                    <table id="table-room" class="table table-bordered table-hover">
+                        <thead>
+                        <tr>
+                            <th class="mn-w-40px w-40px"><img class="w-15px h-15px" src="~/assets/icon/sort.png" alt=""/></th>
+                            <th class="mn-w-100px w-auto">Name</th>
+                            <th class="mn-w-150px w-150px">Floor</th>
+                            <th class="mn-w-150px w-150px">Total Seat</th>
+                            <th class="mn-w-150px w-150px">Total Row</th>
+                            <th class="mn-w-80px w-80px no-sort">Status</th>        
+                            <th class="mn-w-100px w-100px">Created On</th>
+                            <th class="mn-w-90px w-90px">Created By</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var item in JsonConvert.DeserializeObject<List<Room>>(Model.Rooms))
+                        {
+                            i++;
+                            <tr>
+                                <td>@i.ToString()</td>
+                                <td>@item.Name</td>
+                                <td>@item.Floor</td>
+                                <td>@($"{item.TotalSeat:n0}")</td>
+                                <td>@($"{item.TotalRow:n0}")</td>
+                                <td>
+                                    @{
+                                        var status = "Active";
+                                        var statusClass = "bg-success";
+                                        if (!item.IsActive) {
+                                            status = "Inactive";
+                                            statusClass = "bg-danger";    
+                                        }
+                                        <span class="label-status  @statusClass">@status</span>
+                                    }
+                                </td>
+                                <td>
+                                    @{
+                                        var dateTime = $"{item.CreatedDate} {item.CreatedTime}";
+                                        <span>@dateTime</span>
+                                    }
+                                </td>
+                                <td>@item.CreatedBy</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    $(document).ready(function() {
+        
+        $.ajax({
+            type: 'GET',
+            url: `@Url.Action("CurrentDateTime", "Home")`,
+            cache: true,
+            dataType: 'json'
+        }).done(function(res) {
+            $('#display-time').text(`Updated At ${res['dateTime']}`)
+        }).fail(function(a, b, c) {
+            console.log('It is error');
+            console.log(c);
+        });
+       
+        const reload = $('div[id$=main-reloading]');
+        const campusPartial = $('#campus-partial');
+        const btnCampus = $('#button-campus');
+        const btnCampusName = $('#button-campus-name');
+        const btnCurrent = $('#button-current');
+        const handleTable = $('#table-room');
+        handleTable.DataTable({
+        "columnDefs": [{
+            "targets": "no-sort",
+            "orderable": false
+            }]
+        });
+        
+        btnCampus.click(function() {
+            reload.show();
+            $.ajax({
+                type: 'GET',
+                url: '@Url.Action("Campus", "Campus")',
+                cache: true
+            }).done(function(res) {
+                campusPartial.empty().append(res);
+                reload.hide();
+            }).fail(function(a, b, c) {
+                console.log('It is error');
+                console.log(c);
+            });
+        });
+        
+        btnCampusName.click(function() {
+            reload.show();
+            $.ajax({
+                type: 'POST',
+                url: '@Url.Action("Building", "Campus")?campusId=@Model.CampusId&campusName=@Model.CampusName',
+                cache: true
+            }).done(function(res) {
+                campusPartial.empty().append(res);
+                reload.hide();
+            }).fail(function(a, b, c) {
+                console.log('It is error');
+                console.log(c);
+            });
+        });
+        
+        btnCurrent.click(function() {
+            reload.show();
+            $.ajax({
+                type: 'POST',
+                url: '@Url.Action("Room", "Campus")?campusId=@Model.CampusId&campusName=@Model.CampusName&buildingId=@Model.BuildingId&buildingName=@Model.BuildingName',
+                cache: true
+            }).done(function(res) {
+                campusPartial.empty().append(res);
+                reload.hide();
+            }).fail(function(a, b, c) {
+                console.log('It is error');
+                console.log(c);
+            });
+        });
+    });
+</script>

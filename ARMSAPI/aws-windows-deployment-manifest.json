@@ -1,0 +1,15 @@
+﻿{
+  "manifestVersion": 1,
+  "deployments": {
+    "aspNetCoreWeb": [
+      {
+        "name": "ARMSAPI",
+        "parameters": {
+          "appBundle": ".",
+          "iisPath": "/",
+          "iisWebSite": "Default Web Site"
+        }
+      }
+    ]
+  }
+}

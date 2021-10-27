@@ -1,0 +1,87 @@
+@model ARMS.ViewModels.ExaminationCourseViewModel
+@{
+    ViewData["Title"] = "Examination Course";
+}
+
+<div class="page-content">
+    <div>
+        <div class="page-selection">
+            <div>    
+                <img class="m-x-15" src="@Url.Content("~/assets/icon/examination_course.png")" alt=""/>
+                <label class="m-l-10 m-t-5">Examination Course</label>
+            </div>    
+            <div>
+                <label class="m-x-10">Semester</label>
+                <label for="semester"></label>
+                <select id="semester" class="main-select">
+                    <option selected="selected" disabled="disabled">Select Semester</option>
+                </select>
+                <button id="button-search-examination-course" class="main-btn main-btn-second m-l-35 m-r-15" type="submit">
+                    <img src="@Url.Content("~/assets/icon/search.png")" alt=""/> 
+                    <span>Search</span>
+                </button>
+            </div>
+        </div>
+        
+        <div id="examination-course-partial">
+            @if (Model.ExaminationCourses != null)
+            {
+                <partial name="_ExaminationCourseIndex" model="@Model"></partial>
+            }
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() { 
+        
+        const reload = $('div[id$=main-reloading]');
+        const semesterSelect = $('#semester');
+        const examinationCoursePartial = $('#examination-course-partial');
+        const btnSearchExaminationCourse = $('#button-search-examination-course')
+        
+        $.getJSON('@Url.Action("CompletionSemesters", "Home")', function(res) {
+            let selectIndex = 0;
+            semesterSelect.empty();
+            semesterSelect.append('<option selected=selected disabled=disabled>Select Semester</option>');         
+            $.each(res, function(index, data) {
+                if (data['isCurrent'] === true) {
+                    selectIndex = index + 1;
+                    semesterSelect.append('<option value="' + data['id'] + '">' + data['semesterText'] + '</option>');
+                } else {
+                    semesterSelect.append('<option value="' + data['id'] + '">' + data['semesterText'] + '</option>');
+                }
+            });
+            semesterSelect.prop('selectedIndex', selectIndex);
+            reload.hide();
+        });
+
+        semesterSelect.change(function() {
+            examinationCoursePartial.empty();
+        });
+
+        btnSearchExaminationCourse.click(function() {
+            const semesterSelected = semesterSelect.val();
+            if (semesterSelected != null) {
+                reload.show();
+                $.ajax({
+                    type: 'POST',
+                    url: `@Url.Action("ExaminationCourse", "ExaminationCourse")?semesterId=${semesterSelected}`,
+                    cache: true
+                }).done(function(res) {
+                    examinationCoursePartial.empty().append(res);
+                    reload.hide();
+                }).fail(function(a, b, c) {
+                    console.log(c);
+                });
+            } else {
+                examinationCoursePartial.empty();
+            }
+        });   
+    });
+</script>
+
+
+
+
+

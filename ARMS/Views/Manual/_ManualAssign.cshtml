@@ -1,0 +1,1084 @@
+@{
+    ViewData["Title"] = "Manual";
+}
+
+<div class="page-selection">
+    <div>    
+        <label class="m-l-15 m-t-10">Welcome to Manual Assignment<span></span></label>
+    </div>    
+    <div>
+        <label></label>
+    </div>
+</div>
+
+<div class="page-assign"> 
+    <div>
+        <div>
+            <div>
+                <input id="search-faculty" type="text" placeholder="All Faculty" class="main-textfield"/>
+            </div>
+            <div>
+                <input id="search-department" type="text" placeholder="All Department" class="main-textfield"/>
+            </div>
+        </div>
+        <div> 
+            <div>
+                <input id="search-course" type="text" placeholder="Select Examination Course" class="main-textfield"/>
+            </div>
+        </div>
+    </div>
+    <div>
+        <div>
+            <label>Examination on</label>
+            <input id="label-datetime" readonly="readonly" type="text" placeholder="No Course"/>
+        </div>
+        <div>
+            <label>Total Section</label>
+            <input id="label-total-section" readonly="readonly" type="text" placeholder="No Section"/>
+        </div>
+        <div>
+            <label>Total Student</label>
+            <input id="label-total-student" readonly="readonly" type="text" placeholder="No Student"/>
+        </div>
+    </div>
+    <div class="display-selecting">
+        <div><label>Campus</label></div>
+        <div class="inserted-campus"></div>
+    </div>
+    <div class="display-selecting">
+        <div>
+            <input id="search-campus" type="text" placeholder="All Campus" class="main-textfield"/>
+        </div>
+        <div>
+            <input id="search-building" type="text" placeholder="All Building" class="main-textfield"/>
+        </div>
+        <div>
+            <input id="search-floor" type="text" placeholder="All Floor" class="main-textfield"/> 
+        </div>
+    </div>
+    <div class="display-selecting">
+        <div><input id="search-room" type="text" placeholder="Select Room" class="main-textfield"/></div>  
+        <div class="inserted-room"></div>
+    </div>
+    <div class="display-selecting">
+        @* <div><label>Accumulative Seat</label></div> *@
+        <div class="inserted-detail"></div>
+    </div>
+    <div class="display-selecting">
+        <div>
+            <label>Total Seat</label>
+            <input id="label-total-seat" readonly="readonly" type="text" placeholder="No Room"/>
+        </div>
+        <div><label id="display-info"></label></div>
+    </div>
+    <div>
+        <div>
+            <button id="handle-save" type="submit" class="disabled">
+                <span>Save</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        
+        const database = firebase.database();
+        const reload = $('div[id$=main-reloading]');
+        const semesterSelected = $('select[id$=semester]').val();
+        const sessionSelected = $('select[id$=session]').val();
+        const manualPartial = $('#manual-partial');
+        const errorPartial = $('#error-partial');
+
+        const handleSave = $('#handle-save');
+        const handleInfo = $('#display-info');
+        
+        const lblDateTime = $('#label-datetime');
+        const lblTotalSection = $('#label-total-section');
+        const lblTotalStudent = $('#label-total-student');
+        const lblTotalSeat = $('#label-total-seat');
+        
+        let courseId = 0;
+        let departmentId = 0;
+        let facultyId = 0;
+        let examinationSlotId = 0;
+        
+        let bloodHoundCourse;
+        let bloodHoundDepartment;
+        let bloodHoundFaculty;
+        
+        let courses;
+        let departments;
+        let faculties;
+        
+        let assignedColors;
+        let assignedCampuses;
+        let assignedSections;
+        
+        const searchFaculty = $('#search-faculty');
+        const searchDepartment = $('#search-department');
+        const searchCourse = $('#search-course');
+        
+        const selectingContainer = $('.display-selecting');
+        selectingContainer.hide();
+        const campusContainer = $('.inserted-campus');
+        campusContainer.hide();
+        const roomContainer = $('.inserted-room');
+        roomContainer.hide();
+        const detailContainer = $('.inserted-detail');
+        detailContainer.hide();
+
+        function loadSections() {
+            reload.show();
+            $.when(
+                $.ajax({
+                    type: 'POST',
+                    url: `@Url.Action("LoadExaminationSections", "Home")?semesterId=${semesterSelected}&courseId=${courseId}`,
+                    cache: true,
+                    dataType: 'json'
+                }).done(function(res) {
+                    assignedSections = res;
+                }).fail(function(a, b, c) {
+                    console.log('It is error');
+                    console.log(c);
+                    loadErrorPage();
+                    loadAssignmentInfo('The request has been failed due to there is a section has no specific campus detail!');
+                }),
+                $.getJSON('@Url.Action("LoadCampusColors", "Home")', function(res) {
+                    assignedColors = res;
+                })
+            ).then( function() {
+                toListCampuses();
+                insertCampuses();
+                insertDetails(false);
+                completionAvailableRoom();
+            });
+        }
+
+        function loadAssignmentInfo(info) {
+            bootbox.alert(info).find('.modal-content').css({
+                'margin-top': function (){
+                    const w = $( window ).height();
+                    const b = $(".modal-dialog").height();
+                    const h = (w - b) / 2;
+                    return h + "px";
+                },
+                'width': '39rem'
+            }); 
+        }
+
+        function toListCampuses() {
+            assignedCampuses = [];
+            assignedSections.forEach(function(item) {
+                if (!(assignedCampuses.some(campus => campus['id'] === item['campusId']))) {
+                    const color = insertColor();
+                    const campus = {id: item['campusId'], name: item['campusName'], color: color, totalStudent: parseFloat(item['seatUsed']), totalSeat: 0};
+                    assignedCampuses.push(campus);
+                } else {
+                    for (let i = 0; i < assignedCampuses.length; i++) {
+                        let campus = assignedCampuses[i];
+                        if (campus['id'] === item['campusId']) {
+                            campus['totalStudent'] += parseFloat(item['seatUsed']);
+                        }
+                    }
+                }
+            });
+        }
+        
+        function insertColor() {
+            for (let i = 0; i < assignedColors.length; i++) {
+                let color = assignedColors[i];
+                if (!(assignedCampuses.some(campus => campus['color'] === color['color']))) {
+                    return color['color'];
+                }
+            }
+        }
+        
+        function insertCampuses() {
+            campusContainer.empty();
+            assignedCampuses.forEach(function(campus) {
+                const name = campus['name'];
+                const totalStudent = campus['totalStudent'];
+                const value = concatenateWord(totalStudent, 'Student');
+                // campusContainer.append(`<span style="background-color:#${campus['color']}">${name} Campus: ${value}</span>`);
+                campusContainer.append(`<span style="background-color:#${campus['color']}">${name} Campus: ${value} / 0 Seat</span>`);
+            });
+            selectingContainer.show();
+            campusContainer.show();
+            // detailContainer.show();
+        }
+        
+        // Old before updating
+        // function insertDetails(isUpdated) {
+        //     let text;
+        //     detailContainer.empty();
+        //     assignedCampuses.forEach(function(campus) {
+        //         isUpdated ? text = parseFloat(campus['totalSeat']) : text = 0;
+        //         const value = concatenateWord(text, 'Seat');
+        //         detailContainer.append(`<span style="background-color:#${campus['color']}">${value}</span>`);
+        //     });
+        // }
+        
+        function insertDetails(isUpdated) {
+            let text;
+            campusContainer.empty();
+            assignedCampuses.forEach(function(campus) {
+                isUpdated ? text = parseFloat(campus['totalSeat']) : text = 0;
+                const valueTotalSeat = concatenateWord(text, 'Seat');
+                const name = campus['name'];
+                const totalStudent = campus['totalStudent'];
+                const valueTotalStudent = concatenateWord(totalStudent, 'Student');
+                campusContainer.append(`<span style="background-color:#${campus['color']}">${name} Campus: ${valueTotalStudent} / ${valueTotalSeat}</span>`);
+            });
+        }
+
+        $.when(
+            $.getJSON('@Url.Action("CompletionFaculties", "Home")', function(res) {
+                faculties = res;
+            }),
+            $.getJSON('@Url.Action("CompletionDepartments", "Home")', function(res) {
+                departments = res;
+            }),
+            $.ajax({
+                type: 'POST',
+                url: `@Url.Action("LoadUnassignedCourses", "Home")?semesterId=${semesterSelected}&examinationTypeId=${sessionSelected}`,
+                cache: true
+            }).done(function(res) {
+                courses = res;
+                console.log(res);
+            }).fail(function(a, b, c) {
+                console.log('It is error');
+                console.log(c);
+                loadErrorPage();
+            })
+        ).then( function() {
+            completionFaculty(faculties, false);
+            completionDepartment(departments, false);
+            completionCourse(courses, false);
+        });
+        
+        searchFaculty.one('mouseenter', function() {
+            searchFaculty.on('typeahead:selected', function(event, data){
+                facultyId = data['id'];
+                searchDepartment.typeahead('val', '');
+                searchDepartment.val('');
+                departmentId = 0;
+                searchCourse.typeahead('val', '');
+                searchCourse.val('');
+                courseId = 0;
+                bindCompletionCourse(true, false);
+                clearInfo();
+                console.log('First event');
+            }).on('keydown', function(event) {
+                if (facultyId !== 0 && (event.which !== 13 && event.which !== 9)) {
+                    searchFaculty.typeahead('val', '');
+                    searchFaculty.val('');
+                    facultyId = 0;
+                    searchDepartment.typeahead('val', '');
+                    searchDepartment.val('');
+                    departmentId = 0;
+                    searchCourse.typeahead('val', '');
+                    searchCourse.val('');
+                    courseId = 0;
+                    restoreBindingCourse(true, false);
+                    clearInfo();
+                }
+                console.log('Second event');
+            }).on('typeahead:change', function() {
+                if (facultyId === 0) {
+                    searchFaculty.typeahead('val', '');
+                    searchFaculty.val('');
+                }
+                console.log('Third event');
+            });
+        });
+        
+        searchDepartment.one('mouseenter', function() {
+            searchDepartment.on('typeahead:selected', function(event, data){
+                departmentId = data['id'];
+                searchCourse.typeahead('val', '');
+                searchCourse.val('');
+                courseId = 0;
+                bindCompletionCourse(false, true);
+                clearInfo();
+                console.log('First event');
+            }).on('keydown', function(event) {
+                if (departmentId !== 0 && (event.which !== 13 && event.which !== 9)) {
+                    searchDepartment.typeahead('val', '');
+                    searchDepartment.val('');
+                    departmentId = 0;
+                    searchCourse.typeahead('val', '');
+                    searchCourse.val('');
+                    courseId = 0;
+                    restoreBindingCourse(false, true);
+                    clearInfo();
+                }
+                console.log('Second event');
+            }).on('typeahead:change', function() {
+                if (departmentId === 0) {
+                    searchDepartment.typeahead('val', '');
+                    searchDepartment.val('');
+                }
+                console.log('Third event');
+            });
+        });
+        
+        searchCourse.one('mouseenter', function() {
+            searchCourse.on('typeahead:selected', function(event, data) {
+                courseId = data['id'];
+                console.log(`Checking data`, data);
+                console.log(`This is selected course ${courseId}`);
+                examinationSlotId = data['examinationSlot']['id'];
+                console.log(`This is the examinationSlotId ${examinationSlotId}`)
+                clearInfo();
+                fillInfo(data);
+                console.log('First event');
+            }).on('keydown', function(event) {
+                if (courseId !== 0 && (event.which !== 13 && event.which !== 9)) {
+                    searchCourse.typeahead('val', '');
+                    searchCourse.val('');
+                    courseId = 0;
+                    clearRoomFilter();
+                    clearInfo();
+                }
+                console.log('Second event');
+            }).on('typeahead:change', function() {
+                if (courseId === 0) {
+                    searchCourse.typeahead('val', '');
+                    searchCourse.val('');
+                }
+                console.log('Third event');
+            });
+
+        });
+        
+        function completionFaculty(data, update) {
+            update ? bloodHoundFaculty.clear() : null;
+            bloodHoundFaculty = new Bloodhound({
+                datumTokenizer: Bloodhound.tokenizers.obj.whitespace('abbreviation'),
+                queryTokenizer: Bloodhound.tokenizers.whitespace,
+                sufficient: 3,
+                local: data
+            });
+            bloodHoundFaculty.initialize(true);
+            searchFaculty.typeahead({
+                hint: true,
+                highlight: true,
+                minLength: 1
+            }, {
+                name: 'faculties',
+                displayKey: 'abbreviation',
+                source: bloodHoundFaculty.ttAdapter(),
+            }); 
+        }
+        
+        function completionDepartment(data, update) {
+            update ? bloodHoundDepartment.clear() : null;
+            bloodHoundDepartment = new Bloodhound({
+                datumTokenizer: Bloodhound.tokenizers.obj.whitespace('nameEn'),
+                queryTokenizer: Bloodhound.tokenizers.whitespace,
+                sufficient: 3,
+                local: data
+            });
+            bloodHoundDepartment.initialize(true);
+            searchDepartment.typeahead({
+                hint: true,
+                highlight: true,
+                minLength: 1,
+                triggerSelectOnValidInput: false
+            }, {
+                name: 'departments',
+                displayKey: 'nameEn',
+                source: bloodHoundDepartment.ttAdapter(),
+            });
+        }
+        
+        function completionCourse(data, update) {
+            update ? bloodHoundCourse.clear() : null;
+            bloodHoundCourse = new Bloodhound({
+                datumTokenizer: Bloodhound.tokenizers.obj.whitespace('text'),
+                queryTokenizer: Bloodhound.tokenizers.whitespace,
+                sufficient: 3,
+                local: data
+            });
+            bloodHoundCourse.initialize(true);
+            searchCourse.typeahead({
+                hint: true,
+                highlight: true,
+                minLength: 3
+            }, {
+                name: 'courses',
+                displayKey: 'text',
+                source: bloodHoundCourse.ttAdapter(),
+            });
+        }
+        
+        
+        function bindCompletionCourse(bindFaculty, bindDepartment) {
+            let tempCourses = [];
+            let tempDepartments = [];
+            
+            if (bindFaculty) {
+                courses.forEach(function(item) {
+                    if (item['facultyId'] === facultyId) {
+                        tempCourses.push(item);
+                    }
+                });
+                departments.forEach(function(item) {
+                    if (item['facultyId'] === facultyId) {
+                        tempDepartments.push(item);
+                    }
+                }); 
+                completionDepartment(tempDepartments, true); 
+                completionCourse(tempCourses, true);
+            } else if (bindDepartment) {
+                courses.forEach(function(item) {
+                    if (item['departmentId'] === departmentId) {
+                        tempCourses.push(item);
+                    }
+                });
+                completionCourse(tempCourses, true);
+            }            
+        }
+        
+        function restoreBindingCourse(restoreFaculty, restoreDepartment) {
+            if (restoreFaculty) {
+                completionDepartment(departments, true); 
+                completionCourse(courses, true);
+            } else if (restoreDepartment) {
+                completionCourse(courses, true);
+            }
+        }
+                
+        let selectedRooms = [];
+        let verifiedCount = 0;
+        let totalSeat = 0;
+        
+        let floor = 0;
+        let buildingId = 0;
+        let campusId = 0;  
+        
+        let bloodHoundRoom;
+        let bloodHoundFloor;
+        let bloodHoundBuilding;
+        let bloodHoundCampus;
+        
+        let rooms;
+        let filteredRooms;
+        let floors;
+        let buildings;
+        let campuses;
+        
+        const searchCampus = $('#search-campus');
+        const searchBuilding = $('#search-building');
+        const searchFloor = $('#search-floor');
+        const searchRoom = $('#search-room');
+        
+        function completionAvailableRoom() {
+            $.when(
+                $.getJSON('@Url.Action("CompletionCampuses", "Home")', function(res) {
+                    campuses = res;
+                }),
+                $.getJSON('@Url.Action("CompletionBuildings", "Home")', function(res) {
+                    buildings = res;
+                }),
+                $.ajax({
+                    type: 'POST',
+                    url: `@Url.Action("CompletionAvailableRooms", "Home")?examinationSlotId=${examinationSlotId}`,
+                    cache: true
+                }).done(function(res) {
+                    rooms = res;
+                    filteredRooms = res;
+                    console.log(res);
+                }).fail(function(a, b, c) {
+                    console.log('It is error');
+                    console.log(c);
+                    loadErrorPage();
+                })
+            ).then( function() {
+                floors = loadFloors(buildings);
+                completionCampus(campuses, false);
+                completionBuilding(buildings, false);
+                completionFloor(floors, false);
+                completionRoom(rooms, false);
+                reload.hide();
+            });
+        }
+        
+        function loadFloors(currentBuildings) {
+            const tempFloors = [];
+            let currentFloor = {floor: 0};
+            currentBuildings.forEach(function(item) {
+                if (item['floorNumber'] > currentFloor['floor']) {
+                    currentFloor['floor'] = item['floorNumber'];
+                }
+            });
+            console.log(`Checking the current total floor ${currentFloor['floor']}`);
+            for (let i = 1; i <= currentFloor['floor']; i++) {
+                const tempFloor = {floor: i};
+                tempFloors.push(tempFloor);
+            }
+            console.log(`Checking the temp floors`, tempFloors);
+            return tempFloors;
+        }
+        
+        function loadFloorsByBuildingId(buildingId) {
+            const tempFloors = [];
+            let tempBuilding;
+            for (let building of buildings) {
+                if (building['id'] === buildingId) {
+                    tempBuilding = building;
+                    break;
+                }
+            }
+            for (let i = 1; i <= tempBuilding['floorNumber']; i++) {
+                const tempFloor = {floor: i};
+                tempFloors.push(tempFloor);
+            }
+            return tempFloors;
+        }
+        
+        searchCampus.one('mouseenter', function() {
+            searchCampus.on('typeahead:selected', function(event, data){
+                campusId = data['id'];
+                searchBuilding.typeahead('val', '');
+                searchBuilding.val('');
+                buildingId = 0;
+                searchFloor.typeahead('val', '');
+                searchFloor.val('');
+                floor = 0; 
+                bindCompletionRoom(true, false, false);
+                console.log('First event');
+            }).on('keydown', function(event) {
+                if (campusId !== 0 && (event.which !== 13 && event.which !== 9)) {
+                    searchCampus.typeahead('val', '');
+                    searchCampus.val('');
+                    campusId = 0;
+                    searchBuilding.typeahead('val', '');
+                    searchBuilding.val('');
+                    buildingId = 0;
+                    searchFloor.typeahead('val', '');
+                    searchFloor.val('');
+                    floor = 0;
+                    restoreBindingRoom(true, false, false);
+                }
+                console.log('Second event');
+            }).on('typeahead:change', function() {
+                if (campusId === 0) {
+                    searchCampus.typeahead('val', '');
+                    searchCampus.val('');
+                }
+            });
+        });
+        
+        searchBuilding.one('mouseenter', function() {
+            searchBuilding.on('typeahead:selected', function(event, data){
+                buildingId = data['id'];
+                searchFloor.typeahead('val', '');
+                searchFloor.val('');
+                floor = 0;
+                bindCompletionRoom(false, true, false);
+                console.log('First event');
+            }).on('keydown', function(event) {
+                if (buildingId !== 0 && (event.which !== 13 && event.which !== 9)) {
+                    searchBuilding.typeahead('val', '');
+                    searchBuilding.val('');
+                    buildingId = 0;
+                    searchFloor.typeahead('val', '');
+                    searchFloor.val('');
+                    floor = 0;
+                    restoreBindingRoom(false, true, false);
+                }
+                console.log('Second event');
+            }).on('typeahead:change', function() {
+                if (buildingId === 0) {
+                    searchBuilding.typeahead('val', '');
+                    searchBuilding.val('');
+                }
+            });
+        });
+        
+        searchFloor.one('mouseenter', function() {
+            searchFloor.on('typeahead:selected', function(event, data){
+                floor = data['floor'];
+                bindCompletionRoom(false, false, true);
+                console.log('First event');
+            }).on('keydown', function(event) {
+                if (floor !== 0 && (event.which !== 13 && event.which !== 9)) {
+                    searchFloor.typeahead('val', '');
+                    searchFloor.val('');
+                    floor = 0; 
+                    restoreBindingRoom(false, false, true)
+                }
+                console.log('Second event');
+            }).on('typeahead:change', function() {
+                if (floor === 0) {
+                    searchFloor.typeahead('val', '');
+                    searchFloor.val('');
+                }
+            });
+        });
+        
+        searchRoom.one('mouseenter', function() {
+            searchRoom.on('typeahead:selected', function(event, data){
+                insertRoom(data);
+                searchRoom.typeahead('val', '');
+                searchRoom.val('');
+            }).keyup(function() {
+                const input = $(this).val();
+                if (input === '') {
+                    searchRoom.typeahead('val', '');
+                    searchRoom.val('');
+                }
+            }).on('typeahead:change', function() {
+                searchRoom.typeahead('val', '');
+                searchRoom.val('');
+            });
+        });
+        
+        function verifiedAssignment() {
+            let totalCampus = 0;
+            verifiedCount = 0;
+            assignedCampuses.forEach(function(campus) {
+                totalCampus++;
+                if (parseFloat(campus['totalSeat']) >= parseFloat(campus['totalStudent'])) {
+                    verifiedCount++;
+                }
+            });
+            return totalCampus === verifiedCount;
+        }
+        
+        function insertRoom(room) {
+            const examCapacity = parseFloat(room['examCapacity']);
+            const name = room['name'];
+            for (let i = 0; i < assignedCampuses.length; i++) {
+                let campus = assignedCampuses[i];
+                if (room['campusId'] === campus['id']) {
+                    if (parseFloat(campus['totalSeat']) < parseFloat(campus['totalStudent'])) {
+                        campus['totalSeat'] += examCapacity;
+                        roomContainer.append(`<span id='${name}' style="background-color:#${campus['color']}">${name}</span>`);
+                        roomContainer.children().length > 0 ? roomContainer.show() : null;
+                        selectedRooms.push(room);
+                        completionRoom(filteredRooms, true);
+                        insertDetails(true);
+                        totalSeat += examCapacity;
+                        const value = concatenateWord(totalSeat, 'Seat');
+                        lblTotalSeat.val(`${value}`);
+                        handleInfo.text('');
+                        if (verifiedAssignment()) {
+                            handleSave.removeClass("disabled")
+                        }
+                        break;
+                    } else {
+                        if (verifiedAssignment()) {
+                            console.log('Cannot add more rooms due to examination course meets its amount or the examination course has zero student');
+                            handleInfo.text('Cannot add more rooms due to examination course meets its amount or the examination course has zero student');
+                            break;
+                        } else {
+                            console.log('Please select another room for other campus');
+                            handleInfo.text('Please select another room to fit each campus needs!');
+                            break;
+                        }
+                    }
+                } else if (i === assignedCampuses.length - 1) {
+                    handleInfo.text('The selected room was invalid due to not in the correct campus') ;
+                }
+            }
+        }
+        
+        function deleteRoom(roomName) {
+            let tempSelectedRooms;
+            let room;
+            let info;
+            console.log(selectedRooms);
+            
+            for (let item of selectedRooms) {
+                if (item['name'] === roomName) {
+                    room = item;
+                    break;
+                }
+            }
+            
+            tempSelectedRooms = selectedRooms.filter(function(item) {
+                return item['name'] !== roomName;
+            });
+            selectedRooms = tempSelectedRooms;
+            completionRoom(filteredRooms, true);
+            
+            totalSeat -= parseFloat(room['examCapacity']);
+            const value = concatenateWord(totalSeat, 'Seat');
+            totalSeat !== 0 ? info = `${value}` : info = 'No Room';
+            lblTotalSeat.val(info);
+            
+            for (let i = 0; i < assignedCampuses.length; i++) {
+                let campus = assignedCampuses[i];
+                if (room['campusId'] === campus['id']) {
+                    campus['totalSeat'] -= parseFloat(room['examCapacity']);
+                    insertDetails(true);
+                    break;
+                }
+            }
+            
+            if (verifiedAssignment()) {
+                handleSave.removeClass("disabled")
+            } else {
+                handleSave.addClass("disabled")
+            }
+        }
+        
+        roomContainer.click(function(event) {
+            try {
+                $(`#${event.target.id.toString()}`).remove();
+                const roomName = $(event.target).text();
+                console.log(roomName);
+                deleteRoom(roomName);
+                if (roomContainer.children().length === 0) { roomContainer.hide(); }
+            }
+            catch(err) {
+                console.log(err.message);
+            }
+        });
+        
+        
+        function completionCampus(data, update) {
+            update ? bloodHoundCampus.clear() : null;
+            bloodHoundCampus = new Bloodhound({
+                datumTokenizer: Bloodhound.tokenizers.obj.whitespace('nameEn'),
+                queryTokenizer: Bloodhound.tokenizers.whitespace,
+                sufficient: 3,
+                local: data
+            });
+            bloodHoundCampus.initialize(true);
+            searchCampus.typeahead({
+                hint: true,
+                highlight: true,
+                minLength: 1
+            }, {
+                name: 'campuses',
+                displayKey: 'nameEn',
+                source: bloodHoundCampus.ttAdapter(),
+            }); 
+        }
+        
+        function completionBuilding(data, update) {
+            update ? bloodHoundBuilding.clear() : null;
+            bloodHoundBuilding = new Bloodhound({
+                datumTokenizer: Bloodhound.tokenizers.obj.whitespace('nameEn'),
+                queryTokenizer: Bloodhound.tokenizers.whitespace,
+                sufficient: 3,
+                local: data
+            });
+            bloodHoundBuilding.initialize(true);
+            searchBuilding.typeahead({
+                hint: true,
+                highlight: true,
+                minLength: 1,
+                triggerSelectOnValidInput: false
+            }, {
+                name: 'buildings',
+                displayKey: 'nameEn',
+                source: bloodHoundBuilding.ttAdapter(),
+            });
+        }
+        
+        
+        function completionFloor(data, update) {
+            update ? bloodHoundFloor.clear() : null;
+            bloodHoundFloor = new Bloodhound({
+                datumTokenizer: Bloodhound.tokenizers.obj.whitespace('floor'),
+                queryTokenizer: Bloodhound.tokenizers.whitespace,
+                sufficient: 3,
+                local: data
+            });
+            bloodHoundFloor.initialize(true);
+            searchFloor.typeahead({
+                hint: true,
+                highlight: true,
+                minLength: 1,
+                triggerSelectOnValidInput: false
+            }, {
+                name: 'floors',
+                displayKey: 'floor',
+                source: bloodHoundFloor.ttAdapter(),
+            });
+        }
+        
+        function completionRoom(data, update) {
+            let tempData = [];
+            data.forEach(function(item) {
+                if (!(selectedRooms.some(room => room['id'] === item['id']))) {
+                    tempData.push(item);
+                }  
+            });
+            update ? bloodHoundRoom.clear() : null;
+            bloodHoundRoom = new Bloodhound({
+                datumTokenizer: Bloodhound.tokenizers.obj.whitespace('text'),
+                queryTokenizer: Bloodhound.tokenizers.whitespace,
+                sufficient: 3,
+                local: tempData
+            });
+            bloodHoundRoom.initialize(true);
+            searchRoom.typeahead({
+                hint: true,
+                highlight: true,
+                minLength: 2,
+                triggerSelectOnValidInput: false
+            }, {
+                name: 'rooms',
+                displayKey: 'text',
+                source: bloodHoundRoom.ttAdapter(),
+            });
+        }
+        
+        function bindCompletionRoom(bindCampus, bindBuilding, bindFloor) {
+            let tempRooms = [];
+            let tempFloors = [];
+            let tempBuildings = [];
+            
+            if (bindCampus) {
+                rooms.forEach(function(item) {
+                    if (item['campusId'] === campusId) {
+                        tempRooms.push(item);
+                    }
+                });
+                buildings.forEach(function(item) {
+                    if (item['campusId'] === campusId) {
+                        tempBuildings.push(item);
+                    }
+                });
+                tempFloors = loadFloors(tempBuildings);
+                console.log('Checking tempFloors', tempFloors)
+                completionBuilding(tempBuildings, true);
+                completionFloor(tempFloors, true);
+                completionRoom(tempRooms, true);
+            }   else if (bindBuilding) {
+                rooms.forEach(function(item) {
+                   if (item['buildingId'] === buildingId) {
+                       tempRooms.push(item);
+                   }
+                });
+                tempFloors = loadFloorsByBuildingId(buildingId);
+                completionFloor(tempFloors, true);
+                completionRoom(tempRooms, true);
+            }   else if (bindFloor) {
+                rooms.forEach(function(item) {
+                    if (item['floor'] === floor && buildingId === 0 && campusId === 0) {
+                        tempRooms.push(item);
+                    } else if (item['floor'] === floor && item['buildingId'] === buildingId) {
+                        tempRooms.push(item);
+                    } else if (item['floor'] === floor && buildingId === 0 && item['campusId'] === campusId) {
+                        tempRooms.push(item);
+                    }
+                });
+                completionRoom(tempRooms, true);
+            }
+            filteredRooms = tempRooms;
+        }
+        
+        function restoreBindingRoom(restoreCampus, restoreBuilding, restoreFloor) {
+            if (restoreCampus) {
+                completionBuilding(buildings, true);
+                completionFloor(floors, true); 
+                completionRoom(rooms, true);
+            } else if (restoreBuilding) {
+                completionFloor(floors, true); 
+                completionRoom(rooms, true);
+            } else if (restoreFloor) {
+                completionRoom(rooms, true);
+            }
+        }
+
+        //Old
+        // function getRoomIds() {
+        //     let roomIds = '';
+        //     for (let i = 0; i < selectedRooms.length; i++) {
+        //         roomIds += selectedRooms[i]['id'];
+        //         if (i !== selectedRooms.length - 1) {
+        //             roomIds += ',';
+        //         }
+        //     }
+        //     console.log(roomIds);
+        //     return roomIds;
+        // }
+        
+        function getRoomIds() {
+            let roomIds = [];
+            for (let i = 0; i < selectedRooms.length; i++) {
+                roomIds.push(selectedRooms[i]['id']); 
+            }
+            console.log(roomIds);
+            return roomIds;
+        }
+        
+        function concatenateWord(value, word) {
+            return value > 1 ? `${value} ${word}s` : `${value} ${word}`;
+        }
+        
+        handleSave.click(function() {
+            console.log('checking is granted or not');
+            const check = verifiedAssignment();
+            if (check) {
+                const roomIds = getRoomIds();
+                const toJsonRoomIds = JSON.stringify(roomIds);
+                console.log(toJsonRoomIds);
+                handleInfo.text('');
+                bootbox.confirm('Are you sure you want to assign this examination course?', function(res){
+                    const url = `@Url.Action("ActivateManual", "Home")?courseId=${courseId}&examinationSlotId=${examinationSlotId}&roomIds=${toJsonRoomIds}`;
+                    console.log(url);
+                    if (res) {
+                        reload.show();
+                        database.ref().child('dissolving').once('value').then(function(snapshot) {
+                            if (snapshot.val()['isDissolving'] !== true) {
+                                database.ref().child('assigning').once('value').then(function(snapshot) {
+                                    if (snapshot.val()['isProcessing'] === true) {
+                                        loadAssignmentInfo('The Manual Assignment cannot be proceeded right now due to another process is running, please try again later.');
+                                        reload.hide();
+                                    } else {
+                                        $.ajax({
+                                            type: 'POST',
+                                            url: url,
+                                            cache: true,
+                                            dataType: 'json'
+                                        }).done(function(res) {
+                                            console.log(res['isSuccess']);
+                                            if (res['isSuccess']) {
+                                                console.log('IsSuccess');
+                                                setTimeout(function() {
+                                                    reload.hide();
+                                                    loadAssignmentInfo(`${searchCourse.val()} has been assigned successfully`);
+                                                    rollBackSegmentUX();
+                                                    loadAssignedCourse();
+                                                }, 2000);
+                                            } else {
+                                                rollBackSegmentUX();
+                                                loadAssignedCourse();
+                                                loadAssignmentInfo('There is a fail request, please try again.');
+                                                updateError();
+                                            }
+                                        }).fail(function(a, b, c) {
+                                            console.log('It is error');
+                                            console.log(c);
+                                            loadErrorPage();
+                                        });
+                                    }
+                                });
+                            } else {
+                                loadAssignmentInfo('The Manual Assignment cannot be proceeded right now due to another process is running, please try again later.');
+                                reload.hide();
+                            }
+                        });
+                    }
+                }).find('.modal-content').css({
+                   'margin-top': function (){
+                       const w = $( window ).height();
+                       const b = $(".modal-dialog").height();
+                       const h = (w - b) / 2;
+                       return h + "px";
+                   },
+                   'width': '39rem'
+                });
+            } else {
+                handleInfo.text('Invalid selected rooms or the seats of the room are not enough to assign.');
+            }
+        });
+        
+        function updateError() {
+            const data = { errorMessage: '', isAutomate: false, isComputing: false, isError: false, isProcessing: false, isRetrieving: false, isUpdating: false};
+            database.ref().child('assigning').set(data);
+        }
+        
+        
+        function loadAssignedCourse() {
+            const semesterSelected = $('select[id$=semester]').val();
+            const sessionSelected = $('select[id$=session]').val();
+            const sessionText = $('select[id$=session] option:selected').text();
+            $.ajax({
+                type: 'POST',
+                url: `@Url.Action("AssignedCourse", "Manual")?semesterId=${semesterSelected}&examinationTypeId=${sessionSelected}&sessionText=${sessionText}`,
+                cache: true
+            }).done(function(res) {
+                manualPartial.empty().append(res);
+                reload.hide();
+            }).fail(function(a, b, c) {
+                console.log('It is error');
+                console.log(c);
+            });
+        }
+        
+        function rollBackSegmentUX() {
+            $('.button-segment').each(function(index, object) {
+                if (object.className.indexOf('active') !== -1) {
+                    object.className = object.className.replace(' active', '');
+                } 
+                index === 0 ? $(this).addClass('active') : null;
+            });
+        }
+        
+        function clearRoomFilter() {
+            campuses = [];
+            bloodHoundCampus.clear();
+            buildings = [];
+            bloodHoundBuilding.clear();
+            floors = [];
+            bloodHoundFloor.clear();
+            rooms = [];
+            bloodHoundRoom.clear();
+        }
+        
+        function fillInfo(course) {
+            lblDateTime.val(course['examinationSlot']['examinationDateTime']);
+            const valueSection = concatenateWord(course['totalSection'], 'Section');
+            lblTotalSection.val(`${valueSection}`);
+            const valueStudent = concatenateWord(course['totalStudent'], 'Student');
+            lblTotalStudent.val(`${valueStudent}`);
+            loadSections();
+        }
+        
+        function clearInfo() {
+            lblDateTime.val('No Course');
+            lblTotalSection.val('No Section');
+            lblTotalStudent.val('No Student');
+            lblTotalSeat.val('No Room');
+            searchCampus.typeahead('val', '');
+            searchCampus.val('');
+            searchBuilding.typeahead('val', '');
+            searchBuilding.val('');
+            searchFloor.typeahead('val', '');
+            searchFloor.val('');
+            handleInfo.text('');
+            hideLayout();
+            resetData();
+        }
+        
+        function hideLayout() {
+            selectingContainer.hide();
+            campusContainer.empty();
+            campusContainer.hide();
+            detailContainer.empty();
+            detailContainer.hide();
+            roomContainer.empty();
+            roomContainer.hide();
+        }
+        
+        function resetData() {
+            selectedRooms = [];
+            totalSeat = 0;
+            floor = 0;
+            buildingId = 0;
+            campusId = 0;  
+        }
+        
+        function loadErrorPage() {
+            const url = '@Url.Action("ErrorPage", "Home")';
+            $.ajax({
+                type: 'GET',
+                url: url,
+                cache: true
+            }).done(function(res) {
+                manualPartial.empty();
+                errorPartial.empty().append(res);
+                reload.hide();
+            })
+        }
+    });
+</script>

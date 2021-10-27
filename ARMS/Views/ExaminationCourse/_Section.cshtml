@@ -1,0 +1,159 @@
+@using Newtonsoft.Json
+@model ARMS.ViewModels.ExaminationCourseViewModel
+@{
+    ViewData["Title"] = "Section";
+    var i = 0;
+    var totalStudent = 0;
+}
+
+<div class="page-selection">
+    <div>    
+        <img class="m-x-15" src="@Url.Content("~/assets/icon/clock.png")" alt=""/>
+        <label class="m-l-10 m-t-5" id="display-time"></label>
+    </div>    
+    <div>
+        <label></label>
+    </div>
+</div>
+
+<div class="page-breadcrumb">
+    <div class="unselected">
+        <button id="button-course" type="submit">
+            <span>Examination Course</span>
+        </button>
+    </div>
+    <div>
+        <button class="active" id="button-current" type="submit">
+            <span>@Model.CourseCodeName</span>
+        </button>
+    </div>
+</div>
+
+<section class="page-table">
+    <div class="col-md-12 col-lg-12">
+        <div class="block block--underline">
+            <div class="block__body text-left height-3">
+                <div class="table-responsive">
+                    <table id="table-section" class="table table-bordered table-hover">
+                        <thead>
+                        <tr>
+                            <th class="mn-w-40px w-40px"><img class="w-15px h-15px" src="~/assets/icon/sort.png" alt=""/></th>
+                            <th class="mn-w-150px w-auto">Section Number</th>
+                            <th class="mn-w-150px w-auto">Total Student</th>
+                            <th class="mn-w-80px w-80px no-sort">Status</th>
+                            <th class="mn-w-80px w-80px no-sort">Action</th>
+                            <th class="mn-w-100px w-100px">Created On</th>
+                            <th class="mn-w-90px w-90px">Created By</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var item in JsonConvert.DeserializeObject<List<Section>>(Model.Sections) )
+                        {
+                            i++;
+                            totalStudent += item.SeatUsed;
+                            <tr>
+                                <td>@i.ToString()</td>
+                                <td>@item.Number</td>
+                                <td>@($"{item.SeatUsed:n0}")</td>
+                                <td>
+                                    @{    
+                                        var status = "Active";
+                                        var statusClass = "bg-success";
+                                        if (!item.IsActive) {
+                                            status = "Inactive";
+                                            statusClass = "bg-danger";    
+                                        }
+                                        <span class="label-status @statusClass">@status</span>
+                                    }
+                                </td>
+                                <td class="display-flex">
+                                    <a asp-controller="ExaminationCourse" asp-action="Student" asp-route-semesterId="@Model.SemesterId" asp-route-courseId="@Model.CourseId" asp-route-courseCodeName="@Model.CourseCodeName" asp-route-sectionId="@item.Id" asp-route-sectionNumber="@item.Number" class="btn-image btn-image-info w-23 h-23"><img class="w-15px h-15px" src="@Url.Content("~/assets/icon/info.png")" alt=""/></a>  
+                                </td>
+                                <td>
+                                    @{
+                                        var dateTime = $"{item.CreatedDate} {item.CreatedTime}";
+                                        <span>@dateTime</span>
+                                    }
+                                </td>
+                                <td>@item.CreatedBy</td>
+                            </tr>
+                        }
+                        @{
+                            Console.WriteLine($"This is total student of section {totalStudent}");
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    $(document).ready(function() {
+        
+        $.ajax({
+            type: 'GET',
+            url: `@Url.Action("CurrentDateTime", "Home")`,
+            cache: true,
+            dataType: 'json'
+        }).done(function(res) {
+            $('#display-time').text(`Updated At ${res['dateTime']}`)
+        }).fail(function(a, b, c) {
+            console.log('It is error');
+            console.log(c);
+        });
+        
+        const reload = $('div[id$=main-reloading]');
+        const examinationCoursePartial = $('#examination-course-partial');
+        const btnCourse = $('#button-course');
+        const btnCurrent = $('#button-current');
+        const handleTable = $('#table-section');
+        handleTable.DataTable({
+        "columnDefs": [{
+            "targets": "no-sort",
+            "orderable": false
+            }]
+        });
+        
+        handleTable.on('click', '.btn-image', function(event) {
+            reload.show();
+            event.preventDefault();
+            const url = $(this).attr("href");
+            $.post(url).done(function(result) {
+                examinationCoursePartial.html(result); 
+                reload.hide();
+            });
+        });
+        
+        btnCourse.click(function() {
+            reload.show();
+            $.ajax({
+                type: 'POST',
+                url: '@Url.Action("ExaminationCourse", "ExaminationCourse")?semesterId=@Model.SemesterId',
+                cache: true
+            }).done(function(res) {
+                examinationCoursePartial.empty().append(res);
+                reload.hide();
+            }).fail(function(a, b, c) {
+                console.log('It is error');
+                console.log(c);
+            });
+        });        
+        
+        btnCurrent.click(function() {
+            reload.show();
+            $.ajax({
+                type: 'POST',
+                url: '@Url.Action("Section", "ExaminationCourse")?semesterId=@Model.SemesterId&courseId=@Model.CourseId&courseCodeName=@Model.CourseCodeName',
+                cache: true
+            }).done(function(res) {
+                examinationCoursePartial.empty().append(res);
+                reload.hide();
+            }).fail(function(a, b, c) {
+                console.log('It is error');
+                console.log(c);
+            });
+        });
+    }); 
+</script>
